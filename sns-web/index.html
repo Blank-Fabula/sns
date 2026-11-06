@@ -829,24 +829,24 @@ $("clear").addEventListener("click", async () => {
 });
 
 
-/* ---------- 계정(Supabase) : 로그인하면 저장된 연결 코드를 불러와 확장에 자동 설정 ---------- */
-const SB_URL = "", SB_KEY = ""; // Supabase 프로젝트 주소와 anon(공개) 키를 넣으면 계정 기능이 켜집니다.
-let sb = null, pairBusy = false;
+/* ---------- 계정(PHP 서버) : 로그인하면 저장된 연결 코드를 불러와 확장에 자동 설정 ---------- */
+let sess = "", pairBusy = false;
+try { sess = localStorage.getItem("snsSess") || ""; } catch (e) {}
+async function api(action, body) {
+  const r = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, body || {})) });
+  let j;
+  try { j = await r.json(); } catch (e) { throw new Error("서버 응답을 읽지 못했습니다."); }
+  if (!j.ok) throw new Error(j.error || "요청에 실패했습니다.");
+  return j;
+}
 function acctSay(t, isErr) { const m = $("acctMsg"); m.textContent = t || ""; m.hidden = !t; m.className = isErr ? "error" : "hint"; }
-function randomHex() { return Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, "0")).join(""); }
-async function pairFlow() {
+function setSess(s) { sess = s || ""; try { if (sess) localStorage.setItem("snsSess", sess); else localStorage.removeItem("snsSess"); } catch (e) {} }
+async function pairFlow(email, tok) {
   if (pairBusy) return;
   pairBusy = true;
   try {
-    acctSay("연결 코드를 불러오는 중…");
-    const got = await sb.from("pairing").select("token").maybeSingle();
-    if (got.error) throw got.error;
-    let tok = got.data && got.data.token;
-    if (!tok) {
-      tok = randomHex();
-      const ins = await sb.from("pairing").insert({ token: tok });
-      if (ins.error) throw ins.error;
-    }
+    $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = email + " 로그인됨";
+    acctSay("확장에 연결하는 중…");
     token = tok;
     let st;
     try { st = await call("status", {}); }
@@ -862,39 +862,27 @@ async function pairFlow() {
     acctSay((e && e.message) || "연결하지 못했습니다.", true);
   } finally { pairBusy = false; }
 }
-function onSession(session) {
-  $("acctForm").hidden = !!session;
-  $("acctUser").hidden = !session;
-  if (session) { $("acctWho").textContent = session.user.email + " 로그인됨"; pairFlow(); }
-}
 async function initAccount() {
-  if (!SB_URL || !SB_KEY) return;
   $("acct").hidden = false;
-  try {
-    await new Promise((ok, no) => {
-      const sc = document.createElement("script");
-      sc.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js";
-      sc.onload = ok; sc.onerror = () => no(new Error("로그인 모듈을 불러오지 못했습니다."));
-      document.head.appendChild(sc);
-    });
-    sb = window.supabase.createClient(SB_URL, SB_KEY);
-    sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => onSession(session), 0); });
-    $("acctForm").addEventListener("submit", async (ev) => {
-      ev.preventDefault();
-      acctSay("");
-      const r = await sb.auth.signInWithPassword({ email: $("acctEmail").value.trim(), password: $("acctPw").value });
-      if (r.error) acctSay("로그인하지 못했습니다: " + r.error.message, true);
-    });
-    $("acctSignup").addEventListener("click", async () => {
-      acctSay("");
-      const email = $("acctEmail").value.trim(), password = $("acctPw").value;
-      if (!email || password.length < 6) { acctSay("이메일과 6자 이상 비밀번호를 입력하세요.", true); return; }
-      const r = await sb.auth.signUp({ email, password });
-      if (r.error) acctSay("가입하지 못했습니다: " + r.error.message, true);
-      else if (!r.data.session) acctSay("확인 메일을 보냈습니다. 메일의 링크를 누른 뒤 로그인하세요.");
-    });
-    $("acctOut").addEventListener("click", () => { sb.auth.signOut(); });
-  } catch (e) { acctSay(e.message, true); }
+  const doAuth = async (action) => {
+    acctSay("");
+    try {
+      const j = await api(action, { email: $("acctEmail").value.trim(), password: $("acctPw").value });
+      $("acctPw").value = "";
+      setSess(j.session);
+      pairFlow(j.email, j.token);
+    } catch (e) { acctSay(e.message, true); }
+  };
+  $("acctForm").addEventListener("submit", (ev) => { ev.preventDefault(); doAuth("login"); });
+  $("acctSignup").addEventListener("click", () => doAuth("signup"));
+  $("acctOut").addEventListener("click", async () => {
+    try { await api("logout"); } catch (e) {}
+    setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; acctSay("");
+  });
+  if (sess) {
+    try { const j = await api("me"); pairFlow(j.email, j.token); }
+    catch (e) { setSess(""); }
+  }
 }
 initAccount();
 
