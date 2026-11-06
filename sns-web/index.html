@@ -119,7 +119,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
   <input id="q" type="search" placeholder="제목·작성자 검색" aria-label="검색">
   <select id="period" aria-label="보기 기간">
     <option value="1">최근 1일</option><option value="3">최근 3일</option>
-    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="0">전체</option>
+    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option><option value="0">전체</option>
   </select>
   <select id="view" aria-label="전체 보기 방식">
     <option value="source" selected>출처별로 보기</option><option value="group">묶음·계정별로 보기</option>
@@ -185,7 +185,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
       </form>
       <p class="hint">같은 사람·브랜드의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 주면 '묶음·계정별로 보기'에서 한 줄로 모아 보여줍니다.</p>
       <div class="row">
-        <select id="winDays" aria-label="가져올 기간"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
+        <select id="winDays" aria-label="가져올 기간"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option></select>
         <button id="checkNow" class="primary" type="button">가져오기</button>
         <label class="row"><input id="autoEnabled" type="checkbox"> 자동 확인</label>
         <select id="autoHours" aria-label="자동 확인 주기"><option value="1">1시간마다</option><option value="3">3시간마다</option><option value="6">6시간마다</option><option value="12">12시간마다</option></select>
@@ -208,7 +208,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
   <main>
     <nav id="tabs" class="tabs" aria-label="출처"></nav>
     <div id="grid"></div>
-    <p id="empty">아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 30일)의 글이 여기에 모입니다.</p>
+    <p id="empty">아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 60일)의 글이 여기에 모입니다.</p>
   </main>
 </div>
 
@@ -359,8 +359,8 @@ async function doSync(s) {
   syncing = true;
   try {
     const base = "data/users/" + uid;
-    const cut = Date.now() - 30 * 86400000;
-    const keep = items.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 2000);
+    const cut = Date.now() - 60 * 86400000;
+    const keep = items.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 3000);
     const size = 60, n = Math.ceil(keep.length / size);
     const prev = await db.doc(base + "/meta").get();
     const prevN = prev.exists ? Number((prev.data() || {}).chunks) || 0 : 0;
@@ -382,7 +382,7 @@ async function refresh() {
   settings = d.settings || {};
   tracked = Array.isArray(d.tracked) ? d.tracked : [];
   autoCheck = d.autoCheck || { enabled: false, hours: 3 };
-  winDays = [7, 14, 30].includes(d.windowDays) ? d.windowDays : 7;
+  winDays = [7, 14, 30, 60].includes(d.windowDays) ? d.windowDays : 7;
   checkStatus = d.status || {};
   loginState = d.loginState || {};
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
@@ -630,7 +630,7 @@ function renderList() {
     list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
   }
   $("empty").hidden = list.length > 0;
-  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '가져오기'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 30일)의 글이 여기에 모입니다.";
+  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '가져오기'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 60일)의 글이 여기에 모입니다.";
 }
 function renderTracked() {
   const box = $("tracked");
