@@ -369,6 +369,7 @@ function renderTracked() {
     rm.addEventListener("click", async () => {
       tracked = tracked.filter((x) => x.id !== t.id);
       items = items.filter((it) => it.via !== t.id); // 이 계정으로 모은 글도 함께 지웁니다
+      savedItems = savedItems.filter((it) => it.via !== t.id); // 서버 저장본에서도 뺍니다
       renderTracked(); renderTabs(); renderList();
       await call("set", { tracked }).catch(showErr);
       await call("removeVia", { ids: [t.id] }).catch(() => {}); // 확장이 구버전이면 글은 남습니다

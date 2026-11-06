@@ -169,6 +169,7 @@ let clearArmed = null;
 $("clear").addEventListener("click", async () => {
   if (!clearArmed) { $("clearAsk").hidden = false; clearArmed = setTimeout(() => { clearArmed = null; $("clearAsk").hidden = true; }, 4000); return; }
   clearTimeout(clearArmed); clearArmed = null; $("clearAsk").hidden = true;
+  savedItems = []; // 서버 저장본도 함께 비웁니다(다음 저장 때 반영)
   await call("clearItems").catch(showErr);
 });
 

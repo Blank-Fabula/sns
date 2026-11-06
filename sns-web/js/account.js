@@ -22,7 +22,7 @@ async function pairFlow(uid, tok) {
     try { st = await call("status", {}); }
     catch (e) {
       const m = (e && e.message) || "";
-      if (/응답하지 않습니다/.test(m)) throw new Error("확장 프로그램이 응답하지 않습니다. 확장이 켜져 있는지 확인하고 이 페이지를 Ctrl+Shift+R로 새로고침하세요.");
+      if (/응답하지 않습니다/.test(m)) throw new Error("확장 프로그램이 응답하지 않습니다. 확장이 없는 기기라면 저장된 목록만 볼 수 있습니다. 확장이 있는 PC라면 켜져 있는지 확인하고 Ctrl+Shift+R로 새로고침하세요.");
       if (/맞지 않습니다|알 수 없는 요청/.test(m)) throw new Error("확장이 v0.11.0보다 오래된 버전입니다. 새 버전을 덮어쓰고 ⟳ 한 뒤 새로고침하세요. (확장 메시지: " + m + ")");
       throw new Error("확장 오류: " + m);
     }
@@ -45,6 +45,7 @@ async function initAccount() {
       const j = await api(action, { id: $("acctEmail").value.trim(), password: $("acctPw").value });
       $("acctPw").value = "";
       setSess(j.session);
+      pullSaved();
       pairFlow(j.id, j.token);
     } catch (e) { acctSay(e.message, true); }
   };
@@ -52,6 +53,9 @@ async function initAccount() {
   $("acctSignup").addEventListener("click", () => doAuth("signup"));
   const doLogout = async () => {
     try { await api("logout"); } catch (e) {}
+    // 저장된 연결 코드도 지워야 새로고침 후 자동으로 다시 연결되지 않습니다.
+    try { localStorage.removeItem("snsToken"); } catch (e) {}
+    token = "";
     setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; $("connOut").hidden = true; acctSay("");
     location.reload();
   };
