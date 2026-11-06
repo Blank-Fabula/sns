@@ -41,12 +41,24 @@ function flash(c) { c.classList.add("flash"); setTimeout(() => c.classList.remov
 const RESUME_LABEL = { new: "‹ 최신글 이어보기", old: "이전글 이어보기 ›" };
 const RESUME_NONE = { new: "더 새로운 글 없음", old: "안 본 글 없음" };
 const RESUME_TITLE = { new: "가장 최근에 확인한 글보다 더 새로운 안 본 글로 이동", old: "안 본 글 중 가장 최신 글로 이동" };
+let noticeTimer = 0;
+function showNotice(text) {
+  let n = $("notice");
+  if (!n) { n = el("div", { id: "notice", role: "status" }); document.body.appendChild(n); }
+  n.textContent = text; n.classList.add("show");
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => n.classList.remove("show"), 1600);
+}
 function resumeBtn(dir, extra, run) {
   const b = el("button", Object.assign({ type: "button", text: RESUME_LABEL[dir], title: RESUME_TITLE[dir] }, extra));
-  b.addEventListener("click", () => {
-    if (!run(dir)) { b.textContent = RESUME_NONE[dir]; setTimeout(() => { b.textContent = RESUME_LABEL[dir]; }, 1500); }
-  });
+  b.addEventListener("click", () => { if (!run(dir)) showNotice(RESUME_NONE[dir]); });
   return b;
+}
+// 찾은 글로 이동하고, 그 글을 바로 엽니다(이전/다음 이동도 같은 줄 기준으로 됩니다).
+function openResume(target) {
+  flash(target);
+  setViewCtx(target, target._item);
+  openItem(target._item);
 }
 function addResumeButtons() {
   document.querySelectorAll("#grid .sec").forEach((sec) => {
@@ -56,7 +68,7 @@ function addResumeButtons() {
       const target = pickResume(Array.from(row.children).filter((n) => n._item), dir);
       if (!target) return false;
       row.scrollTo({ left: Math.max(0, target.offsetLeft - row.offsetLeft - 8), behavior: "smooth" });
-      flash(target);
+      openResume(target);
       return true;
     };
     head.appendChild(resumeBtn("new", { class: "resume" }, run));
@@ -73,7 +85,7 @@ function addResumeButtons() {
         const target = g2 && pickResume(Array.from(g2.children).filter((n) => n._item), dir);
         if (!target) return false;
         target.scrollIntoView({ block: "center", behavior: "smooth" });
-        flash(target);
+        openResume(target);
         return true;
       };
       fab.appendChild(resumeBtn("new", { class: "primary" }, run));
