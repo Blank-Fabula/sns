@@ -901,6 +901,19 @@ async function initAccount() {
 }
 initAccount();
 
+/* 카드 줄 위에서 마우스 휠을 돌리면 그 줄이 좌우로 움직입니다(끝에 닿으면 페이지가 위아래로 움직임). */
+document.addEventListener("wheel", (ev) => {
+  const row = ev.target.closest && ev.target.closest(".row-cards");
+  if (!row || ev.ctrlKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
+  const max = row.scrollWidth - row.clientWidth;
+  if (max <= 0) return;
+  const dy = ev.deltaMode === 1 ? ev.deltaY * 40 : ev.deltaY;
+  const atStart = row.scrollLeft <= 0 && dy < 0, atEnd = row.scrollLeft >= max - 1 && dy > 0;
+  if (atStart || atEnd) return;
+  ev.preventDefault();
+  row.scrollLeft += dy;
+}, { passive: false });
+
 renderAll();
 initStore();
 try { const t = localStorage.getItem("snsToken"); if (t) connect(t, false); } catch (e) {}
