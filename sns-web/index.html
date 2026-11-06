@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}img{max-width:100%}</style>
+<title>SNS 모아보기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 상단 고정 바 + 연결 상태 띠 + 왼쪽 관리 패널 / 오른쪽 카드 목록 */
+:root {
+  --bg: #f3f5f6; --card: #ffffff; --fg: #1b2327; --muted: #5d6a70; --line: #d9e0e3;
+  --accent: #0b7a75; --accent-fg: #ffffff; --danger: #b3261e; --ok: #1f7a3d; --warn: #8a5a00;
+  --font: "Noto Sans KR", system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a1c; --card: #1d2528; --fg: #e5ecee; --muted: #9eadb2; --line: #2e3a3e;
+    --accent: #4fc3bc; --accent-fg: #0d1a19; --danger: #f2877f; --ok: #6fcf8c; --warn: #e3b44f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a1c; --card: #1d2528; --fg: #e5ecee; --muted: #9eadb2; --line: #2e3a3e;
+  --accent: #4fc3bc; --accent-fg: #0d1a19; --danger: #f2877f; --ok: #6fcf8c; --warn: #e3b44f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.55 var(--font);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 32px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--card); }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 12px 0; background: var(--bg); border-bottom: 1px solid var(--line); }
+h1 { font-size: 18px; margin: 0 auto 0 0; letter-spacing: -0.01em; }
+input, select, button { font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 500; }
+button.danger { color: var(--danger); }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="search"] { width: 200px; }
+.conn { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; color: var(--muted); font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.dot.on { background: var(--ok); }
+.results { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; max-height: 340px; overflow-y: auto; overscroll-behavior: contain; }
+.res { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-top: 1px solid var(--line); }
+.res:first-child { border-top: 0; }
+.res img, .res .ph { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--line); flex: none; }
+.res .t { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.res .t b { font-weight: 500; overflow-wrap: anywhere; }
+.res .t span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.loginbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 8px; }
+.lb { text-decoration: none; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 6px; padding: 5px 12px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.loginbar .lb { display: inline-flex; align-items: center; text-decoration: none; color: var(--accent-fg); background: var(--accent); border-radius: 6px; padding: 5px 12px; font-weight: 500; }
+.modal-back { position: fixed; inset: 0; z-index: 20; background: rgba(10, 18, 20, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal { position: relative; width: min(420px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.modal h2 { margin: 0; font-size: 16px; padding-right: 28px; }
+.modal .x { position: absolute; top: 10px; right: 10px; border: 0; background: transparent; font-size: 20px; line-height: 1; padding: 4px 8px; color: var(--muted); }
+.modal .lrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.modal .lrow a { text-decoration: none; color: var(--accent-fg); background: var(--accent); border-radius: 6px; padding: 5px 12px; font-weight: 500; white-space: nowrap; }
+.modal .foot { display: flex; justify-content: flex-end; }
+.layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 8px; }
+@media (max-width: 800px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+aside { display: flex; flex-direction: column; gap: 16px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.panel h2 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 700; letter-spacing: .04em; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row input[type="text"], .row input[type="password"] { flex: 1 1 140px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); max-width: 100%; }
+.chip span { overflow-wrap: anywhere; }
+.chip button { border: 0; background: transparent; padding: 0 6px; color: var(--muted); }
+.error { color: var(--danger); margin: 0; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; }
+.tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.tabs .n { font-family: var(--mono); font-size: 12px; margin-left: 4px; opacity: .85; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.row-cards { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; cursor: grab; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.row-cards.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.row-cards .card { flex: 0 0 240px; scroll-snap-align: start; }
+.row-cards img { -webkit-user-drag: none; user-select: none; }
+.sections { display: flex; flex-direction: column; gap: 24px; }
+.sec { display: flex; flex-direction: column; gap: 10px; }
+.sec-head { display: flex; align-items: center; gap: 10px; }
+.sec-head h3 { margin: 0; font-size: 15px; }
+.sec-head .n { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-right: auto; }
+.card { display: flex; flex-direction: column; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; color: inherit; text-decoration: none; }
+.card:hover { border-color: var(--accent); }
+.card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--line); display: block; }
+.card .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.badge { align-self: flex-start; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.title { font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.meta { font-size: 12px; color: var(--muted); }
+#empty { padding: 40px 0; text-align: center; color: var(--muted); }
+</style>
+
+<header>
+  <h1>SNS 모아보기</h1>
+  <input id="q" type="search" placeholder="제목·작성자 검색" aria-label="검색">
+  <select id="period" aria-label="보기 기간">
+    <option value="1">최근 1일</option><option value="3">최근 3일</option>
+    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="0">전체</option>
+  </select>
+  <select id="view" aria-label="전체 보기 방식">
+    <option value="source" selected>출처별로 보기</option><option value="group">묶음·계정별로 보기</option>
+  </select>
+  <select id="sort" aria-label="정렬">
+    <option value="published" selected>게시 시각 순</option><option value="collected">수집 순</option>
+  </select>
+</header>
+
+<div class="conn"><span id="dot" class="dot"></span><span id="connText">확장 프로그램과 연결되지 않았습니다.</span></div>
+
+<div id="loginBar" class="loginbar" hidden></div>
+
+<div id="loginModal" class="modal-back" role="dialog" aria-modal="true" aria-labelledby="lmTitle" hidden>
+  <div class="modal">
+    <button id="lmX" class="x" type="button" aria-label="닫기">×</button>
+    <h2 id="lmTitle">로그인이 필요한 매체가 있습니다</h2>
+    <p class="hint">로그인하지 않은 매체는 글을 가져올 수 없습니다. 같은 크롬에서 로그인한 뒤 '상태 다시 확인'을 눌러 주세요.</p>
+    <div id="lmList"></div>
+    <div class="foot"><button id="lmLater" type="button">나중에</button></div>
+  </div>
+</div>
+
+<div class="layout">
+  <aside>
+    <section class="panel" id="connectPanel">
+      <h2>확장 프로그램 연결</h2>
+      <ol class="steps">
+        <li>크롬에 <b>SNS 신규글 모아보기</b> 확장을 설치합니다.</li>
+        <li>확장 아이콘을 눌러 열린 화면의 <b>웹 연결 코드</b>를 복사합니다.</li>
+        <li>아래에 붙여넣고 연결을 누릅니다.</li>
+      </ol>
+      <form id="connForm" class="row">
+        <input id="token" type="password" placeholder="웹 연결 코드" aria-label="웹 연결 코드" autocomplete="off">
+        <button class="primary" type="submit">연결</button>
+      </form>
+      <p id="connError" class="error" hidden></p>
+      <p class="hint">코드는 이 브라우저에만 저장됩니다. 수집한 글은 서버로 보내지 않고, 이 페이지는 확장에서 받아 보여주기만 합니다.</p>
+    </section>
+
+    <section class="panel" id="trackPanel" hidden>
+      <h2>추적 계정</h2>
+      <form id="addForm" class="row">
+        <select id="tplatform" aria-label="플랫폼"><option value="youtube">유튜브</option><option value="x">X</option><option value="instagram">인스타그램</option></select>
+        <input id="thandle" type="text" placeholder="이름 검색(Enter) · @계정 · 주소(메인 주소 = 내 피드)" aria-label="계정" autocomplete="off">
+        <button type="submit">추가</button>
+        <button id="searchBtn" type="button">이름으로 검색</button>
+      </form>
+      <div id="searchResults" class="results" hidden></div>
+      <div class="row"><input id="tgroup" type="text" maxlength="30" placeholder="묶음 이름 (선택, 예: 취요남)" aria-label="묶음 이름" autocomplete="off"></div>
+      <p id="addError" class="error" hidden></p>
+      <div id="tracked" class="chips"></div>
+      <form id="groupForm" class="row">
+        <select id="gAcc" aria-label="묶을 계정"></select>
+        <input id="gName" type="text" maxlength="30" placeholder="묶음 이름 (비우면 해제)" aria-label="묶음 이름" autocomplete="off">
+        <button type="submit">묶기</button>
+      </form>
+      <p class="hint">같은 사람·브랜드의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 주면 '묶음·계정별로 보기'에서 한 줄로 모아 보여줍니다.</p>
+      <div class="row">
+        <button id="checkNow" class="primary" type="button">최근 7일 가져오기</button>
+        <label class="row"><input id="autoEnabled" type="checkbox"> 자동 확인</label>
+        <select id="autoHours" aria-label="자동 확인 주기"><option value="1">1시간마다</option><option value="3">3시간마다</option><option value="6">6시간마다</option><option value="12">12시간마다</option></select>
+      </div>
+      <p id="status" class="hint"></p>
+      <p class="hint">가져오기를 누르면 크롬에 새 창이 열려 계정 페이지를 차례로 방문하고 끝나면 닫힙니다. 창이 열려 있는 동안에는 건드리지 마세요. X·인스타그램은 자동 수집이 약관상 제한될 수 있습니다.</p>
+    </section>
+
+    <section class="panel" id="platPanel" hidden>
+      <h2>수집 켜기</h2>
+      <div class="row">
+        <label><input type="checkbox" data-key="youtube"> 유튜브</label>
+        <label><input type="checkbox" data-key="x"> X</label>
+        <label><input type="checkbox" data-key="instagram"> 인스타그램</label>
+      </div>
+      <div class="row"><button id="clear" class="danger" type="button">수집한 글 모두 삭제</button><span id="clearAsk" class="hint" hidden>한 번 더 누르면 삭제됩니다.</span></div>
+    </section>
+  </aside>
+
+  <main>
+    <nav id="tabs" class="tabs" aria-label="출처"></nav>
+    <div id="grid"></div>
+    <p id="empty">아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 최근 7일치가 여기에 모입니다.</p>
+  </main>
+</div>
+
+<script>
+const LABELS = { all: "전체", "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타그램" };
+const PLATFORM = { youtube: "유튜브", x: "X", instagram: "인스타그램" };
+const RESERVED = new Set(["home", "explore", "i", "search", "p", "reel", "reels", "accounts", "settings", "messages"]);
+const MAX_TRACKED = 30;
+const $ = (id) => document.getElementById(id);
+
+let items = [], settings = {}, tracked = [], autoCheck = { enabled: false, hours: 3 }, checkStatus = {};
+let activeTab = "all", token = "", connected = false, polling = null;
+
+function el(tag, props = {}, children = []) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "text") n.textContent = v; else if (k === "class") n.className = v; else n.setAttribute(k, v);
+  }
+  children.forEach((c) => n.appendChild(c));
+  return n;
+}
+
+/* ---------- 확장 연결 (window.postMessage → 확장의 연결 스크립트) ---------- */
+let seq = 0;
+const pending = new Map();
+window.addEventListener("message", (ev) => {
+  if (ev.source !== window || !ev.data || ev.data.sns !== "reply") return;
+  const p = pending.get(ev.data.id);
+  if (!p) return;
+  pending.delete(ev.data.id);
+  clearTimeout(p.timer);
+  const hint = /통신하지 못했습니다|context invalidated/i.test(ev.data.error || "") ? " 확장을 다시 로드했다면 이 페이지를 새로고침(F5)한 뒤 다시 연결하세요." : "";
+  ev.data.ok ? p.resolve(ev.data.result) : p.reject(new Error((ev.data.error || "확장이 응답하지 않았습니다.") + hint));
+});
+function call(op, payload, waitMs) {
+  return new Promise((resolve, reject) => {
+    const id = ++seq;
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error("확장 프로그램이 응답하지 않습니다. 확장이 설치되어 있고 이 페이지가 확장의 허용 목록에 있는지 확인하세요."));
+    }, waitMs || 4000);
+    pending.set(id, { resolve, reject, timer });
+    window.postMessage({ sns: "call", id, token, op, payload: payload || {} }, "*");
+  });
+}
+
+function setConn(ok) {
+  connected = ok;
+  if (!ok) { $("loginBar").hidden = true; }
+  $("connectPanel").hidden = ok;
+  $("trackPanel").hidden = !ok;
+  $("platPanel").hidden = !ok;
+  updateConnText();
+}
+function updateConnText() {
+  $("dot").className = "dot" + (connected ? " on" : "");
+  const note = saveNote ? " · " + saveNote : "";
+  if (connected) $("connText").textContent = "확장 프로그램과 연결됨 · 글 " + items.length + "건" + note;
+  else if (savedAt) $("connText").textContent = "저장본을 보는 중 · 글 " + items.length + "건 · 마지막 동기화 " + relative(savedAt) + " (확장을 연결하면 새로 갱신됩니다)";
+  else $("connText").textContent = "확장 프로그램과 연결되지 않았습니다." + note;
+}
+
+/* ---------- 매체별 로그인 상태 ---------- */
+const LOGIN_LINK = { youtube: "https://www.youtube.com/", x: "https://x.com/i/flow/login", instagram: "https://www.instagram.com/accounts/login/" };
+let loginState = {}, modalShown = false, loginAsked = false;
+const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
+function renderLogin() {
+  const need = connected ? needLogin() : [];
+  const bar = $("loginBar");
+  bar.textContent = "";
+  bar.hidden = !connected;
+  if (connected) {
+    if (need.length) bar.appendChild(el("span", { class: "hint", text: "로그인 필요:" }));
+    need.forEach((p) => bar.appendChild(loginLink(p, PLATFORM[p] + " 로그인", "lb")));
+    const re = el("button", { type: "button", text: "로그인 상태 확인" });
+    re.addEventListener("click", () => { re.disabled = true; re.textContent = "확인 중…"; call("checkLogin").catch(showErr); setTimeout(() => { re.disabled = false; re.textContent = "로그인 상태 확인"; }, 12000); });
+    bar.appendChild(re);
+    if (!need.length && Object.keys(loginState).length) bar.appendChild(el("span", { class: "hint", text: "확인된 매체는 모두 로그인되어 있습니다." }));
+  }
+  const modal = $("loginModal");
+  if (need.length && !modalShown) {
+    modalShown = true;
+    const list = $("lmList");
+    list.textContent = "";
+    need.forEach((p) => list.appendChild(el("div", { class: "lrow" }, [el("span", { text: PLATFORM[p] }), loginLink(p, "로그인하러 가기")])));
+    modal.hidden = false;
+    $("lmLater").focus();
+  } else if (!need.length) modal.hidden = true;
+}
+// 로그인 링크는 확장이 별도의 작은 창으로 엽니다(실패하면 새 탭으로 엽니다).
+function loginLink(p, text, cls) {
+  // 링크(<a>)가 아니라 버튼으로 만들어, 확장이 여는 창 말고 기존 창에서 따로 열리지 않게 합니다.
+  const a = el("button", { type: "button", class: "lb " + (cls || ""), text });
+  a.addEventListener("click", () => { call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener")); });
+  return a;
+}
+function closeLoginModal() { $("loginModal").hidden = true; }
+$("lmX").addEventListener("click", closeLoginModal);
+$("lmLater").addEventListener("click", closeLoginModal);
+$("loginModal").addEventListener("click", (e) => { if (e.target === $("loginModal")) closeLoginModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLoginModal(); });
+
+/* ---------- 로그인 계정에 저장 (db) ---------- */
+let db = null, uid = null, savedAt = 0, saveNote = "", lastSig = "", syncTimer = null, syncing = false;
+async function initStore() {
+  try {
+    db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+    const user = window.claude && window.claude.use ? await window.claude.use("user") : null;
+    uid = user ? await user.id() : null;
+  } catch (e) { db = null; }
+  if (!db || !uid) { saveNote = window.claude ? "저장 불가(로그인 필요)" : ""; updateConnText(); return; }
+  try {
+    const base = "data/users/" + uid;
+    const meta = await db.doc(base + "/meta").get();
+    if (!meta.exists) { saveNote = "확장을 연결하면 내 계정에 자동 저장됩니다"; updateConnText(); return; }
+    const m = meta.data() || {};
+    const out = [];
+    for (let i = 0; i < (m.chunks || 0); i++) {
+      const c = await db.doc(base + "/c" + i).get();
+      if (c.exists) out.push(...((c.data() || {}).items || []));
+    }
+    savedAt = Number(m.savedAt) || 0;
+    if (!connected) {
+      items = out;
+      tracked = Array.isArray(m.tracked) ? m.tracked : [];
+      settings = m.settings || {};
+      autoCheck = m.autoCheck || autoCheck;
+      renderAll();
+    }
+    saveNote = "";
+    updateConnText();
+  } catch (e) { saveNote = "저장본을 읽지 못했습니다"; updateConnText(); }
+}
+function sig() {
+  let mx = 0;
+  for (const it of items) if (it.collectedAt > mx) mx = it.collectedAt;
+  return items.length + ":" + mx + ":" + JSON.stringify(tracked) + JSON.stringify(settings);
+}
+function maybeSync() {
+  if (!db || !uid || !connected) return;
+  const s = sig();
+  if (s === lastSig) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => doSync(s), 2000);
+}
+async function doSync(s) {
+  if (syncing) { syncTimer = setTimeout(() => doSync(s), 2000); return; }
+  syncing = true;
+  try {
+    const base = "data/users/" + uid;
+    const cut = Date.now() - 14 * 86400000;
+    const keep = items.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 1000);
+    const size = 60, n = Math.ceil(keep.length / size);
+    const prev = await db.doc(base + "/meta").get();
+    const prevN = prev.exists ? Number((prev.data() || {}).chunks) || 0 : 0;
+    for (let i = 0; i < n; i++) {
+      await db.doc(base + "/c" + i).set({ items: keep.slice(i * size, (i + 1) * size) });
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    await db.doc(base + "/meta").set({ chunks: n, tracked, settings, autoCheck, savedAt: Date.now(), count: keep.length });
+    for (let i = n; i < prevN; i++) await db.doc(base + "/c" + i).delete();
+    lastSig = s; savedAt = Date.now(); saveNote = "내 계정에 저장됨";
+  } catch (e) { saveNote = "저장 실패(" + ((e && e.code) || (e && e.message) || "오류") + ")"; }
+  finally { syncing = false; updateConnText(); }
+}
+
+async function refresh() {
+  const d = await call("get");
+  items = Object.values(d.items || {});
+  settings = d.settings || {};
+  tracked = Array.isArray(d.tracked) ? d.tracked : [];
+  autoCheck = d.autoCheck || { enabled: false, hours: 3 };
+  checkStatus = d.status || {};
+  loginState = d.loginState || {};
+  if (!connected) setConn(true);
+  if (!loginAsked) { loginAsked = true; call("checkLogin").catch(() => {}); }
+  renderLogin();
+  renderAll();
+  maybeSync();
+}
+
+async function connect(tok, fromForm) {
+  token = tok;
+  const err = $("connError");
+  err.hidden = true;
+  try {
+    await refresh();
+    try { localStorage.setItem("snsToken", tok); } catch (e) { /* 저장 불가 */ }
+    setConn(true);
+    clearInterval(polling);
+    polling = setInterval(() => refresh().catch(() => { if (connected) setConn(false); }), 3000);
+  } catch (e) {
+    setConn(false);
+    if (fromForm) { err.textContent = e.message; err.hidden = false; }
+  }
+}
+
+/* ---------- 목록 ---------- */
+const rtf = new Intl.RelativeTimeFormat("ko", { numeric: "auto" });
+function relative(ms) {
+  const diff = (ms - Date.now()) / 1000;
+  for (const [u, s] of [["day", 86400], ["hour", 3600], ["minute", 60]]) if (Math.abs(diff) >= s) return rtf.format(Math.round(diff / s), u);
+  return "방금";
+}
+let periodDays = 7;
+try { const s = localStorage.getItem("snsPeriod"); if (s !== null && !Number.isNaN(Number(s))) periodDays = Number(s); } catch (e) {}
+$("period").value = String(periodDays);
+const publishedMs = (it) => { const t = Date.parse(it.publishedAt || ""); return Number.isNaN(t) ? it.collectedAt : t; };
+const inPeriod = (it) => !periodDays || publishedMs(it) >= Date.now() - periodDays * 86400000;
+
+// 이미지: 웹 화면은 외부 이미지를 막으므로 확장에 요청해 데이터로 받아 보여줍니다(보이는 카드만, 동시에 4장).
+const imgCache = new Map(), imgQueue = [];
+let imgActive = 0;
+function pumpImg() {
+  while (imgActive < 4 && imgQueue.length) {
+    const { url, img } = imgQueue.shift();
+    imgActive++;
+    call("image", { url }, 20000)
+      .then((v) => { imgCache.set(url, v || ""); v ? (img.src = v) : img.remove(); })
+      .catch(() => { img.remove(); })
+      .finally(() => { imgActive--; pumpImg(); });
+  }
+}
+function loadImg(url, img) {
+  // 일반 웹 주소(Vercel 등)에서는 이미지를 바로 불러옵니다. claude.ai 안에서만 확장을 거칩니다.
+  if (!window.claude) { if (/^https:\/\//.test(url || "")) { img.addEventListener("error", () => img.remove()); img.src = url; } else img.remove(); return; }
+  if (!connected || !/^https:\/\//.test(url || "")) { img.remove(); return; }
+  if (imgCache.has(url)) { const v = imgCache.get(url); v ? (img.src = v) : img.remove(); return; }
+  imgQueue.push({ url, img });
+  pumpImg();
+}
+const imgObserver = new IntersectionObserver((entries) => {
+  entries.forEach((e) => { if (e.isIntersecting) { imgObserver.unobserve(e.target); loadImg(e.target.dataset.src, e.target); } });
+}, { rootMargin: "300px" });
+
+function card(it) {
+  const kids = [];
+  if (it.thumb) {
+    const img = el("img", { alt: "", referrerpolicy: "no-referrer" });
+    img.dataset.src = it.thumb;
+    imgObserver.observe(img);
+    kids.push(img);
+  }
+  const pub = it.publishedAt ? relative(Date.parse(it.publishedAt)) : it.publishedText || "";
+  const meta = [it.author, pub ? "게시 " + pub : "", "수집 " + relative(it.collectedAt)].filter(Boolean).join(" · ");
+  kids.push(el("div", { class: "body" }, [el("span", { class: "badge", text: LABELS[it.source] || it.source }), el("div", { class: "title", text: it.title }), el("div", { class: "meta", text: meta })]));
+  const safe = /^https:\/\//.test(it.url || "") ? it.url : "#";
+  return el("a", { class: "card", href: safe, target: "_blank", rel: "noopener noreferrer" }, kids);
+}
+
+function renderTabs() {
+  const vis = items.filter(inPeriod);
+  const counts = { all: vis.length };
+  vis.forEach((it) => (counts[it.source] = (counts[it.source] || 0) + 1));
+  const nav = $("tabs");
+  nav.textContent = "";
+  Object.keys(LABELS).forEach((k) => {
+    const b = el("button", { type: "button", class: k === activeTab ? "active" : "" }, [el("span", { text: LABELS[k] }), el("span", { class: "n", text: String(counts[k] || 0) })]);
+    b.addEventListener("click", () => { activeTab = k; renderList(); });
+    nav.appendChild(b);
+  });
+}
+// 마우스로 잡아 끌어 좌우로 넘기기 (터치는 기본 스와이프). 끌었을 때는 링크가 열리지 않게 합니다.
+function enableDrag(box) {
+  let down = false, moved = false, startX = 0, startLeft = 0;
+  box.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    down = true; moved = false; startX = e.clientX; startLeft = box.scrollLeft;
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    const dx = e.clientX - startX;
+    if (!moved && Math.abs(dx) > 5) { moved = true; box.classList.add("dragging"); }
+    if (moved) box.scrollLeft = startLeft - dx;
+  });
+  window.addEventListener("pointerup", () => { down = false; box.classList.remove("dragging"); });
+  box.addEventListener("click", (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+  box.addEventListener("dragstart", (e) => e.preventDefault());
+}
+function renderList() {
+  renderTabs();
+  const q = $("q").value.trim().toLowerCase();
+  let list = items.filter(inPeriod).filter((it) => activeTab === "all" || it.source === activeTab);
+  if (q) list = list.filter((it) => (it.title + " " + it.author).toLowerCase().includes(q));
+  const bySort = $("sort").value === "published";
+  list.sort((a, b) => (bySort ? publishedMs(b) - publishedMs(a) : b.collectedAt - a.collectedAt));
+  const g = $("grid");
+  g.textContent = "";
+  g.className = "";
+  if (activeTab === "all" && !q && $("view").value === "group") {
+    // 묶음·계정별: 묶음 이름이 같은 계정은 한 줄로, 묶음 없는 계정은 계정마다 한 줄로 보여줍니다.
+    g.className = "sections";
+    const groups = new Map();
+    tracked.filter((t) => t.kind !== "feed").forEach((t) => {
+      const key = t.group ? "g:" + t.group : "a:" + t.id;
+      if (!groups.has(key)) groups.set(key, { name: t.group || PLATFORM[t.platform] + " @" + (t.handle || t.channelId || ""), ids: new Set(), plats: [] });
+      const gr = groups.get(key);
+      gr.ids.add(t.id);
+      gr.plats.push(PLATFORM[t.platform]);
+    });
+    const rows = [...groups.values()].map((gr) => ({ ...gr, list: list.filter((it) => gr.ids.has(it.via)) }));
+    const known = new Set(tracked.map((t) => t.id));
+    const rest = list.filter((it) => !known.has(it.via));
+    if (rest.length) rows.push({ name: "기타 (둘러보기·내 피드)", plats: [], ids: new Set(), list: rest });
+    rows.forEach((r) => r.list.sort((a, b) => publishedMs(b) - publishedMs(a)));
+    rows.sort((a, b) => (b.list[0] ? publishedMs(b.list[0]) : 0) - (a.list[0] ? publishedMs(a.list[0]) : 0));
+    rows.forEach((r) => {
+      const head = el("div", { class: "sec-head" }, [el("h3", { text: r.name }), el("span", { class: "n", text: r.list.length + "건" + (r.plats.length ? " · " + [...new Set(r.plats)].join("·") : "") })]);
+      const grid = el("div", { class: "row-cards" });
+      if (r.list.length) { r.list.slice(0, 30).forEach((it) => grid.appendChild(card(it))); enableDrag(grid); }
+      else grid.appendChild(el("p", { class: "hint", text: "이 기간에 수집된 글이 없습니다." }));
+      g.appendChild(el("section", { class: "sec" }, [head, grid]));
+    });
+  } else if (activeTab === "all" && !q) {
+    // 한눈에 보기: 출처별 구역으로 나눠 최신 글을 한 화면에 모아 보여줍니다.
+    g.className = "sections";
+    Object.keys(LABELS).filter((k) => k !== "all").forEach((k) => {
+      const part = list.filter((it) => it.source === k);
+      if (!part.length) return;
+      const head = el("div", { class: "sec-head" }, [el("h3", { text: LABELS[k] }), el("span", { class: "n", text: part.length + "건" })]);
+      if (part.length > 30) {
+        const more = el("button", { type: "button", text: "전체 보기" });
+        more.addEventListener("click", () => { activeTab = k; renderList(); });
+        head.appendChild(more);
+      }
+      const grid = el("div", { class: "row-cards" });
+      part.slice(0, 30).forEach((it) => grid.appendChild(card(it)));
+      enableDrag(grid);
+      g.appendChild(el("section", { class: "sec" }, [head, grid]));
+    });
+  } else {
+    g.className = "cards";
+    list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
+  }
+  $("empty").hidden = list.length > 0;
+  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '최근 7일 가져오기'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 최근 7일치가 여기에 모입니다.";
+}
+function renderTracked() {
+  const box = $("tracked");
+  box.textContent = "";
+  tracked.forEach((t) => {
+    const name = t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || t.resolveUrl;
+    const rm = el("button", { type: "button", "aria-label": name + " 삭제", text: "×" });
+    rm.addEventListener("click", async () => { tracked = tracked.filter((x) => x.id !== t.id); renderTracked(); await call("set", { tracked }).catch(showErr); });
+    box.appendChild(el("span", { class: "chip" }, [el("span", { text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") }), rm]));
+  });
+  const sel = $("gAcc"), keep = sel.value;
+  if (document.activeElement !== sel) {
+    sel.textContent = "";
+    tracked.filter((t) => t.kind !== "feed").forEach((t) => sel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
+    if (keep) sel.value = keep;
+  }
+  const ae = $("autoEnabled"), ah = $("autoHours");
+  if (document.activeElement !== ae) ae.checked = !!autoCheck.enabled;
+  if (document.activeElement !== ah) ah.value = String(autoCheck.hours || 3);
+  $("checkNow").disabled = !!checkStatus.running || tracked.length === 0;
+  $("status").textContent = checkStatus.running ? "확인 중… " + (checkStatus.message || "") : checkStatus.lastRun ? "마지막 확인 " + relative(checkStatus.lastRun) + " · " + (checkStatus.message || "") : tracked.length ? "아직 확인한 적 없음" : "계정을 추가하면 여기서 신규 글을 확인합니다";
+}
+function renderSettings() {
+  document.querySelectorAll("#platPanel input[data-key]").forEach((b) => { b.checked = settings[b.dataset.key] !== false; });
+}
+function renderAll() {
+  renderSettings(); renderTracked(); renderList();
+  updateConnText();
+}
+function showErr(e) { const p = $("addError"); p.textContent = e.message; p.hidden = false; }
+
+/* ---------- 계정 입력 해석 ---------- */
+const FEED = { youtube: "내 구독 피드", x: "홈 타임라인", instagram: "홈 피드" };
+const SITE_START = /^(www\.|m\.|mobile\.)?(youtube\.com|youtu\.be|x\.com|twitter\.com|instagram\.com)(\/|$)/i;
+const VIDEO_MSG = "영상 주소입니다. 채널 주소(예: https://www.youtube.com/@이름)를 넣어 주세요.";
+
+// 입력을 해석해 { account } 또는 { error }를 돌려줍니다.
+function parseAccount(platformHint, raw) {
+  let s = raw.trim();
+  if (!s) return { error: "계정이나 주소를 입력하세요." };
+  // "youtube.com"처럼 프로토콜 없이 사이트 주소만 붙여넣은 경우도 주소로 처리합니다.
+  if (!/^https?:\/\//i.test(s) && !s.startsWith("@") && SITE_START.test(s)) s = "https://" + s;
+
+  let platform = platformHint;
+  let handle = "";
+  let channelId = "";
+  let resolveUrl = "";
+  let feed = false;
+
+  if (/^https?:\/\//i.test(s)) {
+    let u;
+    try {
+      u = new URL(s);
+    } catch (e) {
+      return { error: "주소 형식이 올바르지 않습니다." };
+    }
+    const host = u.hostname.replace(/^(www|m|mobile)\./, "");
+    const parts = u.pathname.split("/").filter(Boolean).map((p) => {
+      try {
+        return decodeURIComponent(p);
+      } catch (e) {
+        return p;
+      }
+    });
+    if (host === "youtube.com") {
+      platform = "youtube";
+      if (!parts.length || parts[0] === "feed") feed = true; // 유튜브 메인 → 내 구독 피드
+      else if (parts[0].startsWith("@")) handle = parts[0].slice(1);
+      else if (parts[0] === "channel" && /^UC[\w-]{22}$/.test(parts[1] || "")) channelId = parts[1];
+      else if ((parts[0] === "c" || parts[0] === "user") && parts[1])
+        resolveUrl = "https://www.youtube.com/" + parts[0] + "/" + encodeURIComponent(parts[1]);
+      else if (parts[0] === "watch" || parts[0] === "shorts") return { error: VIDEO_MSG };
+      else return { error: "인식하지 못한 유튜브 주소입니다. 채널 주소(@이름)나 유튜브 메인 주소를 넣어 주세요." };
+    } else if (host === "youtu.be") {
+      return { error: VIDEO_MSG };
+    } else if (host === "x.com" || host === "twitter.com") {
+      platform = "x";
+      if (!parts.length || parts[0] === "home") feed = true; // X 메인 → 홈 타임라인
+      else handle = parts[0];
+    } else if (host === "instagram.com") {
+      platform = "instagram";
+      if (!parts.length) feed = true; // 인스타그램 메인 → 홈 피드
+      else handle = parts[0];
+    } else {
+      return { error: "지원하지 않는 사이트입니다. 유튜브·X·인스타그램 주소만 넣을 수 있습니다." };
+    }
+  } else {
+    handle = s.replace(/^@/, "");
+  }
+
+  if (feed) return { account: { id: platform + ":feed", platform, handle: "", kind: "feed" } };
+  if (!handle && !channelId && !resolveUrl) return { error: "계정을 인식하지 못했습니다. @이름이나 프로필 주소를 입력하세요." };
+  if (handle && (!/^[^\s/?#@]{1,60}$/.test(handle) || RESERVED.has(handle.toLowerCase()))) {
+    return { error: "계정 이름을 인식하지 못했습니다. @이름 형태로 입력하세요." };
+  }
+  const key = (handle || channelId || resolveUrl).toLowerCase();
+  const account = { id: platform + ":" + key, platform, handle };
+  if (channelId) account.channelId = channelId;
+  if (resolveUrl) account.resolveUrl = resolveUrl;
+  return { account };
+}
+
+
+
+/* ---------- 이벤트 ---------- */
+$("connForm").addEventListener("submit", (ev) => { ev.preventDefault(); connect($("token").value.trim(), true); });
+$("q").addEventListener("input", renderList);
+$("sort").addEventListener("change", renderList);
+try { const v = localStorage.getItem("snsView"); if (v === "group" || v === "source") $("view").value = v; } catch (e) {}
+$("view").addEventListener("change", () => { try { localStorage.setItem("snsView", $("view").value); } catch (e) {} renderList(); });
+$("groupForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const id = $("gAcc").value;
+  if (!id) return;
+  const name = $("gName").value.trim().slice(0, 30);
+  const before = tracked;
+  tracked = tracked.map((t) => { if (t.id !== id) return t; const c = { ...t }; if (name) c.group = name; else delete c.group; return c; });
+  renderTracked(); renderList();
+  try { await call("set", { tracked }); $("gName").value = ""; } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
+});
+$("period").addEventListener("change", () => { periodDays = Number($("period").value); try { localStorage.setItem("snsPeriod", String(periodDays)); } catch (e) {} renderList(); });
+document.querySelectorAll("#platPanel input[data-key]").forEach((b) => b.addEventListener("change", async () => { settings[b.dataset.key] = b.checked; await call("set", { settings }).catch(showErr); }));
+// 주소나 @계정이 아니면(예: 그냥 이름) 추가하지 않고 이름으로 검색합니다.
+const isDirect = (v) => /^https?:\/\//i.test(v) || v.startsWith("@") || SITE_START.test(v);
+$("addForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const err = $("addError"); err.hidden = true;
+  const raw = $("thandle").value.trim();
+  if (raw && !isDirect(raw)) { $("searchBtn").click(); return; }
+  const r = parseAccount($("tplatform").value, $("thandle").value);
+  if (r.error) { err.textContent = r.error; err.hidden = false; return; }
+  const acc = r.account;
+  const grp = $("tgroup").value.trim().slice(0, 30);
+  if (grp && acc.kind !== "feed") acc.group = grp;
+  if (tracked.some((t) => t.id === acc.id)) { err.textContent = "이미 추가된 계정입니다."; err.hidden = false; return; }
+  if (tracked.length >= MAX_TRACKED) { err.textContent = "계정은 최대 " + MAX_TRACKED + "개까지 추가할 수 있습니다."; err.hidden = false; return; }
+  const before = tracked;
+  tracked = [...tracked, acc];
+  $("thandle").value = "";
+  renderTracked(); renderList();
+  try { await call("set", { tracked }); } catch (e) { tracked = before; renderTracked(); showErr(e); return; }
+  $("status").textContent = "추가했습니다. 곧 크롬에 새 창이 열려 최근 7일치를 가져옵니다.";
+  call("checkNow", { only: acc.id }).catch(showErr);
+});
+/* ---------- 이름으로 검색 ---------- */
+function addAccount(acc) {
+  const err = $("addError"); err.hidden = true;
+  if (tracked.some((t) => t.id === acc.id)) { err.textContent = "이미 추가된 계정입니다."; err.hidden = false; return Promise.resolve(false); }
+  if (tracked.length >= MAX_TRACKED) { err.textContent = "계정은 최대 " + MAX_TRACKED + "개까지 추가할 수 있습니다."; err.hidden = false; return Promise.resolve(false); }
+  const grp = $("tgroup").value.trim().slice(0, 30);
+  if (grp) acc.group = grp;
+  const before = tracked;
+  tracked = [...tracked, acc];
+  renderTracked(); renderList();
+  return call("set", { tracked }).then(() => { call("checkNow", { only: acc.id }).catch(showErr); return true; }, (e) => { tracked = before; renderTracked(); showErr(e); return false; });
+}
+$("searchBtn").addEventListener("click", async () => {
+  const q = $("thandle").value.trim();
+  const box = $("searchResults"), err = $("addError");
+  err.hidden = true;
+  if (!q) { err.textContent = "검색할 이름을 입력하세요."; err.hidden = false; return; }
+  const platform = $("tplatform").value;
+  box.hidden = false; box.textContent = "";
+  box.appendChild(el("p", { class: "hint", text: "검색 중… 크롬에서 탭이 잠깐 열렸다 닫힙니다." }));
+  $("searchBtn").disabled = true;
+  try {
+    const list = await call("searchAccount", { platform, q }, 40000);
+    box.textContent = "";
+    if (!list.length) {
+      const why = platform === "youtube" ? "" : " " + PLATFORM[platform] + "에 로그인되어 있는지 확인하세요.";
+      box.appendChild(el("p", { class: "hint", text: "검색 결과가 없습니다." + why }));
+      if (platform !== "youtube") box.appendChild(el("div", { class: "row", style: "padding:0 10px 10px" }, [loginLink(platform, PLATFORM[platform] + " 로그인 창 열기", "lb")]));
+    }
+    list.forEach((r) => {
+      const key = (r.handle || r.channelId).toLowerCase();
+      const acc = { id: platform + ":" + key, platform, handle: r.handle || "" };
+      if (r.channelId) acc.channelId = r.channelId;
+      const add = el("button", { type: "button", text: "추가" });
+      add.addEventListener("click", async () => { add.disabled = true; if (await addAccount(acc)) { add.textContent = "추가됨"; } else add.disabled = false; });
+      let thumb = el("span", { class: "ph" });
+      if (r.avatar) thumb = el("img", { src: r.avatar, alt: "", referrerpolicy: "no-referrer" });
+      else if (r.avatarUrl) { thumb = el("img", { alt: "", referrerpolicy: "no-referrer" }); loadImg(r.avatarUrl, thumb); }
+      box.appendChild(el("div", { class: "res" }, [thumb, el("div", { class: "t" }, [el("b", { text: r.name || "@" + (r.handle || r.channelId) }), el("span", { text: [r.handle ? "@" + r.handle : "", r.desc].filter(Boolean).join(" · ") })]), add]));
+    });
+  } catch (e) { box.textContent = ""; showErr(e); box.hidden = true; }
+  finally { $("searchBtn").disabled = false; }
+});
+
+$("autoEnabled").addEventListener("change", () => { autoCheck = { ...autoCheck, enabled: $("autoEnabled").checked }; call("set", { autoCheck }).catch(showErr); });
+$("autoHours").addEventListener("change", () => { autoCheck = { ...autoCheck, hours: Number($("autoHours").value) }; call("set", { autoCheck }).catch(showErr); });
+$("checkNow").addEventListener("click", () => { $("checkNow").disabled = true; call("checkNow", { only: "" }).catch(showErr); });
+let clearArmed = null;
+$("clear").addEventListener("click", async () => {
+  if (!clearArmed) { $("clearAsk").hidden = false; clearArmed = setTimeout(() => { clearArmed = null; $("clearAsk").hidden = true; }, 4000); return; }
+  clearTimeout(clearArmed); clearArmed = null; $("clearAsk").hidden = true;
+  await call("clearItems").catch(showErr);
+});
+
+renderAll();
+initStore();
+try { const t = localStorage.getItem("snsToken"); if (t) { $("token").value = t; connect(t, false); } } catch (e) {}
+</script>
+
