@@ -108,6 +108,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .row-cards { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; cursor: grab; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: thin; }
 .row-cards.wheeling { scroll-snap-type: none; }
+.row-cards.sb { scroll-snap-type: none; }
 .row-cards.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
 .row-cards .card { flex: 0 0 240px; scroll-snap-align: start; }
 .row-cards img { -webkit-user-drag: none; user-select: none; }
@@ -634,6 +635,16 @@ function enableDrag(box) {
   let down = false, moved = false, startX = 0, startLeft = 0;
   box.addEventListener("pointerdown", (e) => {
     if (e.pointerType !== "mouse" || e.button !== 0) return;
+    // 아래쪽 스크롤바를 잡은 경우: 끌기/휠 애니메이션이 간섭하지 않게 하고 브라우저 기본 동작에 맡깁니다.
+    const r = box.getBoundingClientRect();
+    if (e.clientY > r.top + box.clientHeight) {
+      const st = wheelAnim.get(box);
+      if (st && st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; }
+      box.classList.remove("wheeling"); box.classList.add("sb");
+      const off = () => { box.classList.remove("sb"); window.removeEventListener("pointerup", off); window.removeEventListener("mouseup", off); };
+      window.addEventListener("pointerup", off); window.addEventListener("mouseup", off);
+      return;
+    }
     down = true; moved = false; startX = e.clientX; startLeft = box.scrollLeft;
   });
   window.addEventListener("pointermove", (e) => {
