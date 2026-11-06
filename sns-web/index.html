@@ -73,6 +73,7 @@ input[type="search"] { width: 200px; }
 .post .who span { font-size: 12px; color: var(--muted); }
 .post .txt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 .post .imgs { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.post .vid iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; background: #000; }
 .post .imgs img { width: 100%; border-radius: 8px; display: block; background: var(--line); }
 .layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 8px; }
 @media (max-width: 800px) { .layout { grid-template-columns: minmax(0, 1fr); } }
@@ -117,7 +118,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
   <input id="q" type="search" placeholder="제목·작성자 검색" aria-label="검색">
   <select id="period" aria-label="보기 기간">
     <option value="1">최근 1일</option><option value="3">최근 3일</option>
-    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="0">전체</option>
+    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="0">전체</option>
   </select>
   <select id="view" aria-label="전체 보기 방식">
     <option value="source" selected>출처별로 보기</option><option value="group">묶음·계정별로 보기</option>
@@ -183,7 +184,8 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
       </form>
       <p class="hint">같은 사람·브랜드의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 주면 '묶음·계정별로 보기'에서 한 줄로 모아 보여줍니다.</p>
       <div class="row">
-        <button id="checkNow" class="primary" type="button">최근 7일 가져오기</button>
+        <select id="winDays" aria-label="가져올 기간"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select>
+        <button id="checkNow" class="primary" type="button">가져오기</button>
         <label class="row"><input id="autoEnabled" type="checkbox"> 자동 확인</label>
         <select id="autoHours" aria-label="자동 확인 주기"><option value="1">1시간마다</option><option value="3">3시간마다</option><option value="6">6시간마다</option><option value="12">12시간마다</option></select>
       </div>
@@ -205,7 +207,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
   <main>
     <nav id="tabs" class="tabs" aria-label="출처"></nav>
     <div id="grid"></div>
-    <p id="empty">아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 최근 7일치가 여기에 모입니다.</p>
+    <p id="empty">아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 30일)의 글이 여기에 모입니다.</p>
   </main>
 </div>
 
@@ -216,7 +218,7 @@ const RESERVED = new Set(["home", "explore", "i", "search", "p", "reel", "reels"
 const MAX_TRACKED = 30;
 const $ = (id) => document.getElementById(id);
 
-let items = [], settings = {}, tracked = [], autoCheck = { enabled: false, hours: 3 }, checkStatus = {};
+let winDays = 7, items = [], settings = {}, tracked = [], autoCheck = { enabled: false, hours: 3 }, checkStatus = {};
 let activeTab = "all", token = "", connected = false, polling = null;
 
 function el(tag, props = {}, children = []) {
@@ -356,8 +358,8 @@ async function doSync(s) {
   syncing = true;
   try {
     const base = "data/users/" + uid;
-    const cut = Date.now() - 14 * 86400000;
-    const keep = items.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 1000);
+    const cut = Date.now() - 30 * 86400000;
+    const keep = items.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 2000);
     const size = 60, n = Math.ceil(keep.length / size);
     const prev = await db.doc(base + "/meta").get();
     const prevN = prev.exists ? Number((prev.data() || {}).chunks) || 0 : 0;
@@ -379,6 +381,7 @@ async function refresh() {
   settings = d.settings || {};
   tracked = Array.isArray(d.tracked) ? d.tracked : [];
   autoCheck = d.autoCheck || { enabled: false, hours: 3 };
+  winDays = [7, 14, 30].includes(d.windowDays) ? d.windowDays : 7;
   checkStatus = d.status || {};
   loginState = d.loginState || {};
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
@@ -386,7 +389,7 @@ async function refresh() {
   // 바뀐 부분만 다시 그려서 화면이 깜빡이지 않게 합니다.
   let mx = 0;
   for (const it of items) if (it.collectedAt > mx) mx = it.collectedAt;
-  const dataSig = items.length + ":" + mx + ":" + JSON.stringify([tracked, settings, autoCheck]);
+  const dataSig = items.length + ":" + mx + ":" + JSON.stringify([tracked, settings, autoCheck, winDays]);
   const statusSig = JSON.stringify(checkStatus);
   const loginSig = JSON.stringify(loginState);
   if (dataSig !== lastDataSig) { lastDataSig = dataSig; lastStatusSig = statusSig; renderAll(); }
@@ -470,6 +473,16 @@ function renderPost(p, it) {
   head.appendChild(el("div", { class: "who" }, [el("b", { text: p.author || it.author || "" }), el("span", { text: [p.time || "", p.likes ? "좋아요 " + p.likes : ""].filter(Boolean).join(" · ") })]));
   wrap.appendChild(head);
   if (p.text) wrap.appendChild(el("div", { class: "txt", text: p.text }));
+  if (p.video && /^[\w-]{11}$/.test(p.video.id || "")) {
+    const box = el("div", { class: "vid" });
+    if (window.claude) {
+      box.appendChild(el("button", { type: "button", text: "▶ 첨부 영상 보기" + (p.video.title ? ": " + p.video.title : "") }));
+      box.firstChild.addEventListener("click", () => openWindow("https://www.youtube.com/watch?v=" + p.video.id));
+    } else {
+      box.appendChild(el("iframe", { src: "https://www.youtube-nocookie.com/embed/" + p.video.id + "?rel=0", title: p.video.title || "첨부 영상", allow: "encrypted-media; picture-in-picture; fullscreen", allowfullscreen: "", referrerpolicy: "strict-origin-when-cross-origin" }));
+    }
+    wrap.appendChild(box);
+  }
   if (p.images && p.images.length) {
     const g = el("div", { class: "imgs" });
     p.images.forEach((u) => g.appendChild(el("img", { src: u, alt: "", referrerpolicy: "no-referrer" })));
@@ -616,7 +629,7 @@ function renderList() {
     list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
   }
   $("empty").hidden = list.length > 0;
-  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '최근 7일 가져오기'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 최근 7일치가 여기에 모입니다.";
+  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '가져오기'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 30일)의 글이 여기에 모입니다.";
 }
 function renderTracked() {
   const box = $("tracked");
@@ -633,6 +646,8 @@ function renderTracked() {
     tracked.filter((t) => t.kind !== "feed").forEach((t) => sel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
     if (keep) sel.value = keep;
   }
+  const wd = $("winDays");
+  if (document.activeElement !== wd) wd.value = String(winDays);
   const ae = $("autoEnabled"), ah = $("autoHours");
   if (document.activeElement !== ae) ae.checked = !!autoCheck.enabled;
   if (document.activeElement !== ah) ah.value = String(autoCheck.hours || 3);
@@ -757,7 +772,7 @@ $("addForm").addEventListener("submit", async (ev) => {
   $("thandle").value = "";
   renderTracked(); renderList();
   try { await call("set", { tracked }); } catch (e) { tracked = before; renderTracked(); showErr(e); return; }
-  $("status").textContent = "추가했습니다. 곧 크롬에 새 창이 열려 최근 7일치를 가져옵니다.";
+  $("status").textContent = "추가했습니다. 곧 크롬에 새 창이 열려 설정한 기간의 글을 가져옵니다.";
   call("checkNow", { only: acc.id }).catch(showErr);
 });
 /* ---------- 이름으로 검색 ---------- */
@@ -785,9 +800,10 @@ $("searchBtn").addEventListener("click", async () => {
     const list = await call("searchAccount", { platform, q }, 40000);
     box.textContent = "";
     if (!list.length) {
-      const why = platform === "youtube" ? "" : " " + PLATFORM[platform] + "에 로그인되어 있는지 확인하세요.";
+      const needLog = platform !== "youtube" && loginState[platform] && loginState[platform].loggedIn === false;
+      const why = platform === "youtube" ? "" : needLog ? " " + PLATFORM[platform] + "에 로그인되어 있는지 확인하세요." : " " + PLATFORM[platform] + "이 이름 검색을 막았거나 결과가 없을 수 있습니다. @아이디나 주소로 직접 추가해 보세요.";
       box.appendChild(el("p", { class: "hint", text: "검색 결과가 없습니다." + why }));
-      if (platform !== "youtube") box.appendChild(el("div", { class: "row", style: "padding:0 10px 10px" }, [loginLink(platform, PLATFORM[platform] + " 로그인 창 열기", "lb")]));
+      if (needLog) box.appendChild(el("div", { class: "row", style: "padding:0 10px 10px" }, [loginLink(platform, PLATFORM[platform] + " 로그인 창 열기", "lb")]));
     }
     list.forEach((r) => {
       const key = (r.handle || r.channelId).toLowerCase();
@@ -804,6 +820,7 @@ $("searchBtn").addEventListener("click", async () => {
   finally { $("searchBtn").disabled = false; }
 });
 
+$("winDays").addEventListener("change", () => { winDays = Number($("winDays").value); call("set", { windowDays: winDays }).catch(showErr); });
 $("autoEnabled").addEventListener("change", () => { autoCheck = { ...autoCheck, enabled: $("autoEnabled").checked }; call("set", { autoCheck }).catch(showErr); });
 $("autoHours").addEventListener("change", () => { autoCheck = { ...autoCheck, hours: Number($("autoHours").value) }; call("set", { autoCheck }).catch(showErr); });
 $("checkNow").addEventListener("click", () => { $("checkNow").disabled = true; call("checkNow", { only: "" }).catch(showErr); });
