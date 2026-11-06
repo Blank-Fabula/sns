@@ -1100,20 +1100,21 @@ document.addEventListener("wheel", (ev) => {
 
 /* 이어보기: 마지막으로 확인한 글 바로 다음의 안 본 글(없으면 첫 안 본 글)로 이동합니다. */
 function pickResume(cards) {
-  let last = -1;
-  cards.forEach((c, i) => { if (seen.has(c._item.id)) last = i; });
-  return cards.find((c, i) => i > last && !seen.has(c._item.id)) || cards.find((c) => !seen.has(c._item.id)) || null;
+  // 글은 최신순입니다. 가장 최근에 확인한 글(맨 앞쪽 본 글)의 바로 앞에 있는, 더 최근의 안 본 글로 갑니다.
+  const first = cards.findIndex((c) => seen.has(c._item.id));
+  if (first === -1) return cards[cards.length - 1] || null;
+  return first > 0 ? cards[first - 1] : null;
 }
 function flash(c) { c.classList.add("flash"); setTimeout(() => c.classList.remove("flash"), 1800); }
 function addResumeButtons() {
   document.querySelectorAll("#grid .sec").forEach((sec) => {
     const head = sec.querySelector(".sec-head"), row = sec.querySelector(".row-cards");
     if (!head || !row || head.querySelector(".resume")) return;
-    const b = el("button", { type: "button", class: "resume", text: "이어보기 ›", title: "마지막으로 확인한 글 다음의 안 본 글로 이동" });
+    const b = el("button", { type: "button", class: "resume", text: "이어보기 ›", title: "가장 최근에 확인한 글보다 더 새로운 안 본 글로 이동" });
     b.addEventListener("click", () => {
       const cards = Array.from(row.children).filter((n) => n._item);
       const target = pickResume(cards);
-      if (!target) { b.textContent = "모두 확인함"; setTimeout(() => { b.textContent = "이어보기 ›"; }, 1500); return; }
+      if (!target) { b.textContent = "더 새로운 글 없음"; setTimeout(() => { b.textContent = "이어보기 ›"; }, 1500); return; }
       row.scrollTo({ left: Math.max(0, target.offsetLeft - row.offsetLeft - 8), behavior: "smooth" });
       flash(target);
     });
@@ -1128,7 +1129,7 @@ function addResumeButtons() {
       fab.addEventListener("click", () => {
         const g2 = document.querySelector("#grid.cards, #grid .cards");
         const target = g2 && pickResume(Array.from(g2.children).filter((n) => n._item));
-        if (!target) { fab.textContent = "모두 확인함"; setTimeout(() => { fab.textContent = "안 본 글로 ↓"; }, 1500); return; }
+        if (!target) { fab.textContent = "더 새로운 글 없음"; setTimeout(() => { fab.textContent = "안 본 글로 ↓"; }, 1500); return; }
         target.scrollIntoView({ block: "center", behavior: "smooth" });
         flash(target);
       });
