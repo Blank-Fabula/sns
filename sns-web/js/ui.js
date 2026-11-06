@@ -4,7 +4,7 @@ document.addEventListener("wheel", (ev) => {
   const row = ev.target.closest && ev.target.closest(".row-cards");
   if (!row || ev.ctrlKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
   const max = row.scrollWidth - row.clientWidth;
-  if (max <= 0) { ev.preventDefault(); return; } // 넘길 글이 없는 줄 위에서는 페이지가 움직이지 않게 합니다
+  if (max <= 0) return; // 넘길 글이 없는 줄 위에서는 평소처럼 페이지가 스크롤됩니다
   const dy = ev.deltaMode === 1 ? ev.deltaY * 40 : ev.deltaY;
   let st = wheelAnim.get(row);
   const cur = st && st.raf ? st.target : row.scrollLeft;

@@ -164,7 +164,7 @@ $("searchBtn").addEventListener("click", async () => {
 $("winDays").addEventListener("change", () => { winDays = Number($("winDays").value); call("set", { windowDays: winDays }).catch(showErr); });
 $("autoEnabled").addEventListener("change", () => { autoCheck = { ...autoCheck, enabled: $("autoEnabled").checked }; call("set", { autoCheck }).catch(showErr); });
 $("autoHours").addEventListener("change", () => { autoCheck = { ...autoCheck, hours: Number($("autoHours").value) }; call("set", { autoCheck }).catch(showErr); });
-$("checkNow").addEventListener("click", () => { $("checkNow").disabled = true; call("checkNow", { only: "" }).catch(showErr); });
+$("checkNow").addEventListener("click", () => { armLoginPrompt(); $("checkNow").disabled = true; call("checkNow", { only: "" }).catch(showErr); });
 let clearArmed = null;
 $("clear").addEventListener("click", async () => {
   if (!clearArmed) { $("clearAsk").hidden = false; clearArmed = setTimeout(() => { clearArmed = null; $("clearAsk").hidden = true; }, 4000); return; }

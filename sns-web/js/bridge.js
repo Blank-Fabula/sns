@@ -41,7 +41,10 @@ function updateConnText() {
 /* ---------- 매체별 로그인 상태 ---------- */
 const LOGIN_LINK = { youtube: "https://www.youtube.com/", x: "https://x.com/i/flow/login", instagram: "https://www.instagram.com/accounts/login/" };
 let loginState = {}, modalShown = false, loginAsked = false;
-const promptedAt = {};
+// 로그인 창 자동 열기는 "내가 확인/가져오기를 누른 직후 30초" 안에, 매체마다 한 번만 합니다.
+// (로그인 창 자체나 새로고침이 다시 창을 여는 일이 없게 합니다.)
+let promptArmedAt = 0, promptedPlat = {};
+function armLoginPrompt() { promptArmedAt = Date.now(); promptedPlat = {}; }
 const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
 function renderLogin() {
   const need = connected ? needLogin() : [];
@@ -52,17 +55,16 @@ function renderLogin() {
     if (need.length) bar.appendChild(el("span", { class: "hint", text: "로그인 필요:" }));
     need.forEach((p) => bar.appendChild(loginLink(p, PLATFORM[p] + " 로그인", "lb")));
     const re = el("button", { type: "button", text: "로그인 상태 확인" });
-    re.addEventListener("click", () => { re.disabled = true; re.textContent = "확인 중…"; call("checkLogin").catch(showErr); setTimeout(() => { re.disabled = false; re.textContent = "로그인 상태 확인"; }, 12000); });
+    re.addEventListener("click", () => { armLoginPrompt(); re.disabled = true; re.textContent = "확인 중…"; call("checkLogin").catch(showErr); setTimeout(() => { re.disabled = false; re.textContent = "로그인 상태 확인"; }, 12000); });
     bar.appendChild(re);
     if (!need.length && Object.keys(loginState).length) bar.appendChild(el("span", { class: "hint", text: "확인된 매체는 모두 로그인되어 있습니다." }));
   }
   // 방금 확인한 결과에서 로그인이 필요한 매체가 나오면: 잠깐 안내를 띄우고, 그 매체 로그인 창을 맨 앞에 새로 엽니다.
-  // (확인한 지 1분이 넘은 예전 결과나 이미 안내한 결과는 다시 띄우지 않습니다.)
+  // (내가 확인·가져오기를 누른 직후 30초 안에, 매체마다 한 번만 띄웁니다.)
   if (connected) {
     need.forEach((p) => {
-      const st = loginState[p] || {};
-      if (!st.at || Date.now() - st.at > 60000 || promptedAt[p] === st.at) return;
-      promptedAt[p] = st.at;
+      if (!promptArmedAt || Date.now() - promptArmedAt > 30000 || promptedPlat[p]) return;
+      promptedPlat[p] = true;
       showNotice(PLATFORM[p] + " 로그인이 필요합니다");
       call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
     });
