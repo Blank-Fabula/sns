@@ -119,3 +119,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
 
 #notice { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 60; background: rgba(27,35,39,.92); color: #fff; padding: 16px 28px; border-radius: 12px; font-size: 15px; box-shadow: 0 6px 24px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .15s; }
 #notice.show { opacity: 1; }
+
+/* 글 뷰어가 열려 있는 동안에는 뒤의 페이지가 휠로 움직이지 않게 합니다. */
+html:has(#viewer:not([hidden])), body:has(#viewer:not([hidden])) { overflow: hidden; }
+.viewer-back { overscroll-behavior: contain; }
