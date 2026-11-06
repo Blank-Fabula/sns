@@ -25,40 +25,59 @@ document.addEventListener("wheel", (ev) => {
 }, { passive: false });
 
 /* 이어보기: 마지막으로 확인한 글 바로 다음의 안 본 글(없으면 첫 안 본 글)로 이동합니다. */
-function pickResume(cards) {
-  // 글은 최신순입니다. 가장 최근에 확인한 글(맨 앞쪽 본 글)의 바로 앞에 있는, 더 최근의 안 본 글로 갑니다.
-  const first = cards.findIndex((c) => seen.has(c._item.id));
-  if (first === -1) return cards[cards.length - 1] || null;
-  return first > 0 ? cards[first - 1] : null;
+function pickResume(cards, dir) {
+  // 글은 최신순(앞 = 더 최근)입니다. 본 글 기록을 기준으로 두 방향 중 하나를 고릅니다.
+  const idx = [];
+  cards.forEach((c, i) => { if (seen.has(c._item.id)) idx.push(i); });
+  if (dir === "new") {
+    // 최신글 이어보기: 가장 최근에 본 글 바로 앞의 안 본(더 새로운) 글
+    if (!idx.length) return cards[cards.length - 1] || null;
+    return idx[0] > 0 ? cards[idx[0] - 1] : null;
+  }
+  // 이전글 이어보기: 안 본 글 중 가장 최신 글
+  return cards.find((c) => !seen.has(c._item.id)) || null;
 }
 function flash(c) { c.classList.add("flash"); setTimeout(() => c.classList.remove("flash"), 1800); }
+const RESUME_LABEL = { new: "‹ 최신글 이어보기", old: "이전글 이어보기 ›" };
+const RESUME_NONE = { new: "더 새로운 글 없음", old: "안 본 글 없음" };
+const RESUME_TITLE = { new: "가장 최근에 확인한 글보다 더 새로운 안 본 글로 이동", old: "안 본 글 중 가장 최신 글로 이동" };
+function resumeBtn(dir, extra, run) {
+  const b = el("button", Object.assign({ type: "button", text: RESUME_LABEL[dir], title: RESUME_TITLE[dir] }, extra));
+  b.addEventListener("click", () => {
+    if (!run(dir)) { b.textContent = RESUME_NONE[dir]; setTimeout(() => { b.textContent = RESUME_LABEL[dir]; }, 1500); }
+  });
+  return b;
+}
 function addResumeButtons() {
   document.querySelectorAll("#grid .sec").forEach((sec) => {
     const head = sec.querySelector(".sec-head"), row = sec.querySelector(".row-cards");
     if (!head || !row || head.querySelector(".resume")) return;
-    const b = el("button", { type: "button", class: "resume", text: "이어보기 ›", title: "가장 최근에 확인한 글보다 더 새로운 안 본 글로 이동" });
-    b.addEventListener("click", () => {
-      const cards = Array.from(row.children).filter((n) => n._item);
-      const target = pickResume(cards);
-      if (!target) { b.textContent = "더 새로운 글 없음"; setTimeout(() => { b.textContent = "이어보기 ›"; }, 1500); return; }
+    const run = (dir) => {
+      const target = pickResume(Array.from(row.children).filter((n) => n._item), dir);
+      if (!target) return false;
       row.scrollTo({ left: Math.max(0, target.offsetLeft - row.offsetLeft - 8), behavior: "smooth" });
       flash(target);
-    });
-    head.appendChild(b);
+      return true;
+    };
+    head.appendChild(resumeBtn("new", { class: "resume" }, run));
+    head.appendChild(resumeBtn("old", { class: "resume" }, run));
   });
   // 세로 격자 화면(출처 탭, 한 사람 전체 보기 등)은 오른쪽 아래 떠 있는 버튼으로 이동합니다.
   const grid = document.querySelector("#grid.cards, #grid .cards");
   let fab = $("resumeFab");
   if (grid && Array.from(grid.children).some((n) => n._item)) {
     if (!fab) {
-      fab = el("button", { id: "resumeFab", type: "button", class: "primary", text: "안 본 글로 ↓" });
-      fab.addEventListener("click", () => {
+      fab = el("div", { id: "resumeFab" });
+      const run = (dir) => {
         const g2 = document.querySelector("#grid.cards, #grid .cards");
-        const target = g2 && pickResume(Array.from(g2.children).filter((n) => n._item));
-        if (!target) { fab.textContent = "더 새로운 글 없음"; setTimeout(() => { fab.textContent = "안 본 글로 ↓"; }, 1500); return; }
+        const target = g2 && pickResume(Array.from(g2.children).filter((n) => n._item), dir);
+        if (!target) return false;
         target.scrollIntoView({ block: "center", behavior: "smooth" });
         flash(target);
-      });
+        return true;
+      };
+      fab.appendChild(resumeBtn("new", { class: "primary" }, run));
+      fab.appendChild(resumeBtn("old", { class: "primary" }, run));
       document.body.appendChild(fab);
     }
   } else if (fab) fab.remove();
