@@ -93,9 +93,13 @@ aside { display: flex; flex-direction: column; gap: 16px; }
 code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 12px; }
 .tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.pbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.pbar button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.pbar .n { font-family: var(--mono); font-size: 12px; margin-left: 4px; opacity: .85; }
 .tabs .n { font-family: var(--mono); font-size: 12px; margin-left: 4px; opacity: .85; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .row-cards { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; cursor: grab; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.row-cards.wheeling { scroll-snap-type: none; }
 .row-cards.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
 .row-cards .card { flex: 0 0 240px; scroll-snap-align: start; }
 .row-cards img { -webkit-user-drag: none; user-select: none; }
@@ -213,14 +217,14 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
 </div>
 
 <script>
-const LABELS = { all: "전체", "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타그램" };
+const LABELS = { all: "전체", "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타그램", people: "사람별" };
 const PLATFORM = { youtube: "유튜브", x: "X", instagram: "인스타그램" };
 const RESERVED = new Set(["home", "explore", "i", "search", "p", "reel", "reels", "accounts", "settings", "messages"]);
 const MAX_TRACKED = 30;
 const $ = (id) => document.getElementById(id);
 
 let winDays = 7, items = [], settings = {}, tracked = [], autoCheck = { enabled: false, hours: 3 }, checkStatus = {};
-let activeTab = "all", token = "", connected = false, polling = null;
+let personFocus = "", personPlat = "", groupFocus = "", activeTab = "all", token = "", connected = false, polling = null;
 
 function el(tag, props = {}, children = []) {
   const n = document.createElement(tag);
@@ -549,6 +553,7 @@ function renderTabs() {
   const vis = items.filter(inPeriod);
   const counts = { all: vis.length };
   vis.forEach((it) => (counts[it.source] = (counts[it.source] || 0) + 1));
+  counts.people = new Set(tracked.filter((t) => t.kind !== "feed" && t.group).map((t) => t.group)).size;
   const nav = $("tabs");
   nav.textContent = "";
   Object.keys(LABELS).forEach((k) => {
@@ -577,13 +582,84 @@ function enableDrag(box) {
 function renderList() {
   renderTabs();
   const q = $("q").value.trim().toLowerCase();
-  let list = items.filter(inPeriod).filter((it) => activeTab === "all" || it.source === activeTab);
+  let list = items.filter(inPeriod).filter((it) => activeTab === "all" || activeTab === "people" || it.source === activeTab);
   if (q) list = list.filter((it) => (it.title + " " + it.author).toLowerCase().includes(q));
   const bySort = $("sort").value === "published";
   list.sort((a, b) => (bySort ? publishedMs(b) - publishedMs(a) : b.collectedAt - a.collectedAt));
   const g = $("grid");
   g.textContent = "";
   g.className = "";
+  if (activeTab === "people") {
+    // 사람별: 같은 묶음 이름을 가진 유튜브·X·인스타 계정의 글을 한 사람 기준으로 모아 봅니다.
+    const people = new Map();
+    tracked.filter((t) => t.kind !== "feed" && t.group).forEach((t) => {
+      if (!people.has(t.group)) people.set(t.group, { name: t.group, ids: new Set(), plats: new Set() });
+      const p = people.get(t.group);
+      p.ids.add(t.id); p.plats.add(t.platform);
+    });
+    if (!people.size) {
+      g.appendChild(el("p", { class: "hint", text: "아직 묶음이 없습니다. 왼쪽 '추적 계정'에서 같은 사람의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 지정하면, 여기서 그 사람 기준으로 모아 볼 수 있습니다." }));
+      $("empty").hidden = true;
+      return;
+    }
+    const platOf = (it) => (it.source.startsWith("youtube") ? "youtube" : it.source);
+    const rows = [...people.values()].map((p) => ({ ...p, list: list.filter((it) => p.ids.has(it.via)).sort((a, b) => publishedMs(b) - publishedMs(a)) }));
+    rows.sort((a, b) => (b.list[0] ? publishedMs(b.list[0]) : 0) - (a.list[0] ? publishedMs(a.list[0]) : 0));
+    if (personFocus && !rows.some((r) => r.name === personFocus)) personFocus = "";
+    const bar = el("div", { class: "pbar" });
+    const chip = (label, n, active, fn) => { const b = el("button", { type: "button", class: active ? "active" : "" }, [el("span", { text: label }), el("span", { class: "n", text: String(n) })]); b.addEventListener("click", fn); bar.appendChild(b); };
+    chip("모든 사람", rows.reduce((s, r) => s + r.list.length, 0), !personFocus, () => { personFocus = ""; personPlat = ""; renderList(); });
+    rows.forEach((r) => chip(r.name, r.list.length, personFocus === r.name, () => { personFocus = r.name; personPlat = ""; renderList(); }));
+    g.appendChild(bar);
+    const MEDIA = ["youtube-video", "youtube-post", "x", "instagram"];
+    // 한 사람의 글을 매체별(유튜브 영상·유튜브 게시물·X·인스타그램) 줄로 나눠 보여줍니다.
+    const mediaRows = (r, limit, onMore) => {
+      const box = el("div", { class: "sections" });
+      MEDIA.forEach((k) => {
+        const part = r.list.filter((it) => it.source === k);
+        if (!part.length) return;
+        const head = el("div", { class: "sec-head" }, [el("h4", { text: LABELS[k], style: "margin:0;font-size:13px;color:var(--muted)" }), el("span", { class: "n", text: part.length + "건" })]);
+        if (onMore && part.length > limit) {
+          const more = el("button", { type: "button", text: "전체 보기" });
+          more.addEventListener("click", () => onMore(k));
+          head.appendChild(more);
+        }
+        const grid = el("div", { class: "row-cards" });
+        part.slice(0, limit).forEach((it) => grid.appendChild(card(it)));
+        enableDrag(grid);
+        box.appendChild(el("div", { class: "sec" }, [head, grid]));
+      });
+      if (!box.children.length) box.appendChild(el("p", { class: "hint", text: "이 기간에 수집된 글이 없습니다." }));
+      return box;
+    };
+    const body = el("div", { class: "sections" });
+    if (personFocus) {
+      const r = rows.find((x) => x.name === personFocus);
+      if (personPlat) {
+        const back = el("button", { type: "button", text: "← " + r.name });
+        back.addEventListener("click", () => { personPlat = ""; renderList(); });
+        const grid = el("div", { class: "cards" }, [el("div", { class: "sec-head", style: "grid-column: 1 / -1" }, [back, el("h3", { text: LABELS[personPlat] })])]);
+        r.list.filter((it) => it.source === personPlat).slice(0, 300).forEach((it) => grid.appendChild(card(it)));
+        body.appendChild(grid);
+      } else {
+        body.appendChild(el("section", { class: "sec" }, [
+          el("div", { class: "sec-head" }, [el("h3", { text: r.name }), el("span", { class: "n", text: r.list.length + "건 · " + [...r.plats].map((p) => PLATFORM[p]).join("·") })]),
+          mediaRows(r, 30, (k) => { personPlat = k; renderList(); }),
+        ]));
+      }
+    } else {
+      rows.forEach((r) => {
+        const head = el("div", { class: "sec-head" }, [el("h3", { text: r.name }), el("span", { class: "n", text: r.list.length + "건 · " + [...r.plats].map((p) => PLATFORM[p]).join("·") })]);
+        const more = el("button", { type: "button", text: "이 사람만 보기" });
+        more.addEventListener("click", () => { personFocus = r.name; personPlat = ""; renderList(); });
+        head.appendChild(more);
+        body.appendChild(el("section", { class: "sec" }, [head, mediaRows(r, 20, null)]));
+      });
+    }
+    g.appendChild(body);
+    $("empty").hidden = true;
+    return;
+  }
   if (activeTab === "all" && !q && $("view").value === "group") {
     // 묶음·계정별: 묶음 이름이 같은 계정은 한 줄로, 묶음 없는 계정은 계정마다 한 줄로 보여줍니다.
     g.className = "sections";
@@ -601,8 +677,25 @@ function renderList() {
     if (rest.length) rows.push({ name: "기타 (둘러보기·내 피드)", plats: [], ids: new Set(), list: rest });
     rows.forEach((r) => r.list.sort((a, b) => publishedMs(b) - publishedMs(a)));
     rows.sort((a, b) => (b.list[0] ? publishedMs(b.list[0]) : 0) - (a.list[0] ? publishedMs(a.list[0]) : 0));
+    const focused = groupFocus && rows.find((r) => r.name === groupFocus);
+    if (groupFocus && !focused) groupFocus = "";
+    if (focused) {
+      // 한 묶음의 글을 전부 펼쳐서 보여줍니다.
+      g.className = "cards";
+      const back = el("button", { type: "button", text: "← 묶음 목록으로" });
+      back.addEventListener("click", () => { groupFocus = ""; renderList(); });
+      g.appendChild(el("div", { class: "sec-head", style: "grid-column: 1 / -1" }, [back, el("h3", { text: focused.name }), el("span", { class: "n", text: focused.list.length + "건" })]));
+      focused.list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
+      $("empty").hidden = list.length > 0;
+      return;
+    }
     rows.forEach((r) => {
       const head = el("div", { class: "sec-head" }, [el("h3", { text: r.name }), el("span", { class: "n", text: r.list.length + "건" + (r.plats.length ? " · " + [...new Set(r.plats)].join("·") : "") })]);
+      if (r.list.length > 30) {
+        const more = el("button", { type: "button", text: "전체 보기" });
+        more.addEventListener("click", () => { groupFocus = r.name; renderList(); });
+        head.appendChild(more);
+      }
       const grid = el("div", { class: "row-cards" });
       if (r.list.length) { r.list.slice(0, 30).forEach((it) => grid.appendChild(card(it))); enableDrag(grid); }
       else grid.appendChild(el("p", { class: "hint", text: "이 기간에 수집된 글이 없습니다." }));
@@ -638,7 +731,13 @@ function renderTracked() {
   tracked.forEach((t) => {
     const name = t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || t.resolveUrl;
     const rm = el("button", { type: "button", "aria-label": name + " 삭제", text: "×" });
-    rm.addEventListener("click", async () => { tracked = tracked.filter((x) => x.id !== t.id); renderTracked(); await call("set", { tracked }).catch(showErr); });
+    rm.addEventListener("click", async () => {
+      tracked = tracked.filter((x) => x.id !== t.id);
+      items = items.filter((it) => it.via !== t.id); // 이 계정으로 모은 글도 함께 지웁니다
+      renderTracked(); renderTabs(); renderList();
+      await call("set", { tracked }).catch(showErr);
+      await call("removeVia", { ids: [t.id] }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
+    });
     box.appendChild(el("span", { class: "chip" }, [el("span", { text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") }), rm]));
   });
   const sel = $("gAcc"), keep = sel.value;
@@ -901,17 +1000,30 @@ async function initAccount() {
 }
 initAccount();
 
-/* 카드 줄 위에서 마우스 휠을 돌리면 그 줄이 좌우로 움직입니다(끝에 닿으면 페이지가 위아래로 움직임). */
+/* 카드 줄 위에서 마우스 휠을 돌리면 그 줄이 부드럽게 좌우로 움직입니다(끝에 닿으면 페이지가 위아래로 움직임). */
+const wheelAnim = new WeakMap();
 document.addEventListener("wheel", (ev) => {
   const row = ev.target.closest && ev.target.closest(".row-cards");
   if (!row || ev.ctrlKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
   const max = row.scrollWidth - row.clientWidth;
   if (max <= 0) return;
   const dy = ev.deltaMode === 1 ? ev.deltaY * 40 : ev.deltaY;
-  const atStart = row.scrollLeft <= 0 && dy < 0, atEnd = row.scrollLeft >= max - 1 && dy > 0;
-  if (atStart || atEnd) return;
+  let st = wheelAnim.get(row);
+  const cur = st && st.raf ? st.target : row.scrollLeft;
+  if ((cur <= 0 && dy < 0) || (cur >= max - 1 && dy > 0)) return;
   ev.preventDefault();
-  row.scrollLeft += dy;
+  if (!st) { st = { target: row.scrollLeft, raf: 0 }; wheelAnim.set(row, st); }
+  if (!st.raf) st.target = row.scrollLeft;
+  st.target = Math.max(0, Math.min(max, st.target + dy));
+  row.classList.add("wheeling");
+  if (st.raf) return;
+  const step = () => {
+    const diff = st.target - row.scrollLeft;
+    if (Math.abs(diff) < 1) { row.scrollLeft = st.target; st.raf = 0; row.classList.remove("wheeling"); return; }
+    row.scrollLeft += diff * 0.25;
+    st.raf = requestAnimationFrame(step);
+  };
+  st.raf = requestAnimationFrame(step);
 }, { passive: false });
 
 renderAll();
