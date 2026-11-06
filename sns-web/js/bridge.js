@@ -41,6 +41,7 @@ function updateConnText() {
 /* ---------- 매체별 로그인 상태 ---------- */
 const LOGIN_LINK = { youtube: "https://www.youtube.com/", x: "https://x.com/i/flow/login", instagram: "https://www.instagram.com/accounts/login/" };
 let loginState = {}, modalShown = false, loginAsked = false;
+const promptedAt = {};
 const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
 function renderLogin() {
   const need = connected ? needLogin() : [];
@@ -55,15 +56,18 @@ function renderLogin() {
     bar.appendChild(re);
     if (!need.length && Object.keys(loginState).length) bar.appendChild(el("span", { class: "hint", text: "확인된 매체는 모두 로그인되어 있습니다." }));
   }
-  const modal = $("loginModal");
-  if (need.length && !modalShown) {
-    modalShown = true;
-    const list = $("lmList");
-    list.textContent = "";
-    need.forEach((p) => list.appendChild(el("div", { class: "lrow" }, [el("span", { text: PLATFORM[p] }), loginLink(p, "로그인하러 가기")])));
-    modal.hidden = false;
-    $("lmLater").focus();
-  } else if (!need.length) modal.hidden = true;
+  // 방금 확인한 결과에서 로그인이 필요한 매체가 나오면: 잠깐 안내를 띄우고, 그 매체 로그인 창을 맨 앞에 새로 엽니다.
+  // (확인한 지 1분이 넘은 예전 결과나 이미 안내한 결과는 다시 띄우지 않습니다.)
+  if (connected) {
+    need.forEach((p) => {
+      const st = loginState[p] || {};
+      if (!st.at || Date.now() - st.at > 60000 || promptedAt[p] === st.at) return;
+      promptedAt[p] = st.at;
+      showNotice(PLATFORM[p] + " 로그인이 필요합니다");
+      call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
+    });
+  }
+  $("loginModal").hidden = true;
 }
 // 로그인 링크는 확장이 별도의 작은 창으로 엽니다(실패하면 새 탭으로 엽니다).
 function loginLink(p, text, cls) {
