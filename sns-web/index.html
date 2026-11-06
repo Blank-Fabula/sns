@@ -59,6 +59,21 @@ input[type="search"] { width: 200px; }
 .modal .lrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
 .modal .lrow a { text-decoration: none; color: var(--accent-fg); background: var(--accent); border-radius: 6px; padding: 5px 12px; font-weight: 500; white-space: nowrap; }
 .modal .foot { display: flex; justify-content: flex-end; }
+.viewer-back { position: fixed; inset: 0; z-index: 30; background: rgba(10, 18, 20, .6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.viewer { width: min(760px, 100%); max-height: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.viewer .vh { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.viewer .vh b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.viewer .vb { overflow: auto; background: var(--bg); display: flex; justify-content: center; }
+.viewer iframe { width: 100%; border: 0; display: block; background: var(--bg); }
+.post { width: 100%; max-width: 640px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--card); }
+.post .ph2 { display: flex; align-items: center; gap: 10px; }
+.post .av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--line); flex: none; }
+.post .who { display: flex; flex-direction: column; min-width: 0; }
+.post .who b { font-weight: 500; overflow-wrap: anywhere; }
+.post .who span { font-size: 12px; color: var(--muted); }
+.post .txt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.post .imgs { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.post .imgs img { width: 100%; border-radius: 8px; display: block; background: var(--line); }
 .layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 8px; }
 @media (max-width: 800px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 aside { display: flex; flex-direction: column; gap: 16px; }
@@ -126,10 +141,29 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
   </div>
 </div>
 
+<div id="viewer" class="viewer-back" role="dialog" aria-modal="true" aria-label="글 보기" hidden>
+  <div class="viewer">
+    <div class="vh"><b id="vTitle"></b><button id="vWin" type="button">새 크롬 창으로 열기</button><button id="vClose" type="button" aria-label="닫기">×</button></div>
+    <div id="vBody" class="vb"></div>
+  </div>
+</div>
+
 <div class="layout">
   <aside>
     <section class="panel" id="connectPanel">
       <h2>확장 프로그램 연결</h2>
+      <div id="acct" hidden>
+        <p class="hint">계정으로 로그인하면 저장된 연결 코드가 자동으로 불러와집니다. 처음 가입하면 코드가 만들어져 확장에 자동 설정됩니다.</p>
+        <form id="acctForm" class="row">
+          <input id="acctEmail" type="email" placeholder="이메일" aria-label="이메일" autocomplete="username" required>
+          <input id="acctPw" type="password" placeholder="비밀번호(6자 이상)" aria-label="비밀번호" autocomplete="current-password" required minlength="6">
+          <button class="primary" type="submit">로그인</button>
+          <button id="acctSignup" type="button">가입</button>
+        </form>
+        <div id="acctUser" class="row" hidden><span id="acctWho" class="hint"></span><button id="acctOut" type="button">로그아웃</button></div>
+        <p id="acctMsg" class="hint" hidden></p>
+        <p class="hint">아래는 계정 없이 코드를 직접 붙여넣는 방법입니다.</p>
+      </div>
       <ol class="steps">
         <li>크롬에 <b>SNS 신규글 모아보기</b> 확장을 설치합니다.</li>
         <li>확장 아이콘을 눌러 열린 화면의 <b>웹 연결 코드</b>를 복사합니다.</li>
@@ -285,7 +319,7 @@ function closeLoginModal() { $("loginModal").hidden = true; }
 $("lmX").addEventListener("click", closeLoginModal);
 $("lmLater").addEventListener("click", closeLoginModal);
 $("loginModal").addEventListener("click", (e) => { if (e.target === $("loginModal")) closeLoginModal(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLoginModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLoginModal(); closeViewer(); } });
 
 /* ---------- 로그인 계정에 저장 (db) ---------- */
 let db = null, uid = null, savedAt = 0, saveNote = "", lastSig = "", syncTimer = null, syncing = false;
@@ -351,6 +385,7 @@ async function doSync(s) {
   finally { syncing = false; updateConnText(); }
 }
 
+let lastDataSig = "", lastStatusSig = "", lastLoginSig = "";
 async function refresh() {
   const d = await call("get");
   items = Object.values(d.items || {});
@@ -359,10 +394,17 @@ async function refresh() {
   autoCheck = d.autoCheck || { enabled: false, hours: 3 };
   checkStatus = d.status || {};
   loginState = d.loginState || {};
-  if (!connected) setConn(true);
+  if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
   if (!loginAsked) { loginAsked = true; call("checkLogin").catch(() => {}); }
-  renderLogin();
-  renderAll();
+  // 바뀐 부분만 다시 그려서 화면이 깜빡이지 않게 합니다.
+  let mx = 0;
+  for (const it of items) if (it.collectedAt > mx) mx = it.collectedAt;
+  const dataSig = items.length + ":" + mx + ":" + JSON.stringify([tracked, settings, autoCheck]);
+  const statusSig = JSON.stringify(checkStatus);
+  const loginSig = JSON.stringify(loginState);
+  if (dataSig !== lastDataSig) { lastDataSig = dataSig; lastStatusSig = statusSig; renderAll(); }
+  else if (statusSig !== lastStatusSig) { lastStatusSig = statusSig; renderTracked(); }
+  if (loginSig !== lastLoginSig) { lastLoginSig = loginSig; renderLogin(); }
   maybeSync();
 }
 
@@ -420,6 +462,70 @@ const imgObserver = new IntersectionObserver((entries) => {
   entries.forEach((e) => { if (e.isIntersecting) { imgObserver.unobserve(e.target); loadImg(e.target.dataset.src, e.target); } });
 }, { rootMargin: "300px" });
 
+// 글 열기: 유튜브 영상·X·인스타그램 글은 이 페이지 안에서 바로 보고, 그 밖(유튜브 게시물 등)은 새 크롬 창으로 엽니다.
+function embedFor(it) {
+  if (window.claude) return null; // claude.ai 안에서는 다른 사이트를 끼워 넣을 수 없습니다
+  const u = it.url || "";
+  let m;
+  if (it.source === "youtube-video" && (m = /[?&]v=([\w-]{11})/.exec(u))) return { src: "https://www.youtube-nocookie.com/embed/" + m[1] + "?autoplay=1&rel=0", ratio: "16 / 9" };
+  if (it.source === "x" && (m = /\/status\/(\d+)/.exec(u))) return { src: "https://platform.twitter.com/embed/Tweet.html?id=" + m[1], h: 640 };
+  if (it.source === "instagram" && (m = /instagram\.com\/(p|reel|tv)\/([\w-]+)/.exec(u))) return { src: "https://www.instagram.com/" + m[1] + "/" + m[2] + "/embed", h: 700 };
+  return null;
+}
+function openWindow(url) { call("openWindow", { url }).catch(() => window.open(url, "_blank", "noopener")); }
+let viewerUrl = "";
+function closeViewer() { $("viewer").hidden = true; $("vBody").textContent = ""; }
+const postCache = new Map();
+function renderPost(p, it) {
+  const wrap = el("div", { class: "post" });
+  const head = el("div", { class: "ph2" });
+  if (p.avatar) head.appendChild(el("img", { class: "av", src: p.avatar, alt: "", referrerpolicy: "no-referrer" }));
+  head.appendChild(el("div", { class: "who" }, [el("b", { text: p.author || it.author || "" }), el("span", { text: [p.time || "", p.likes ? "좋아요 " + p.likes : ""].filter(Boolean).join(" · ") })]));
+  wrap.appendChild(head);
+  if (p.text) wrap.appendChild(el("div", { class: "txt", text: p.text }));
+  if (p.images && p.images.length) {
+    const g = el("div", { class: "imgs" });
+    p.images.forEach((u) => g.appendChild(el("img", { src: u, alt: "", referrerpolicy: "no-referrer" })));
+    wrap.appendChild(g);
+  }
+  return wrap;
+}
+async function openPost(it) {
+  viewerUrl = it.url;
+  $("vTitle").textContent = it.author || "유튜브 게시물";
+  const body = $("vBody");
+  body.textContent = "";
+  body.appendChild(el("p", { class: "hint", style: "padding:24px", text: "게시물을 불러오는 중… 크롬에서 탭이 잠깐 열렸다 닫힙니다." }));
+  $("viewer").hidden = false;
+  try {
+    let p = postCache.get(it.url);
+    if (!p) { p = await call("fetchPost", { url: it.url }, 45000); postCache.set(it.url, p); }
+    if ($("viewer").hidden || viewerUrl !== it.url) return;
+    body.textContent = "";
+    body.appendChild(renderPost(p, it));
+  } catch (e) {
+    if (viewerUrl !== it.url) return;
+    body.textContent = "";
+    body.appendChild(el("p", { class: "error", style: "padding:24px", text: "게시물을 불러오지 못했습니다. " + (e && e.message ? e.message : "") + " 아래 버튼으로 원본을 열어 주세요." }));
+  }
+}
+function openItem(it) {
+  if (it.source === "youtube-post" && /^https:\/\/www\.youtube\.com\/post\//.test(it.url || "")) { openPost(it); return; }
+  const e = embedFor(it);
+  if (!e) { openWindow(it.url); return; }
+  viewerUrl = it.url;
+  $("vTitle").textContent = it.title || it.author || "";
+  const f = el("iframe", { src: e.src, title: "글 보기", allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowfullscreen: "", referrerpolicy: "strict-origin-when-cross-origin" });
+  if (e.ratio) f.style.aspectRatio = e.ratio; else f.style.height = e.h + "px";
+  const body = $("vBody");
+  body.textContent = "";
+  body.appendChild(f);
+  $("viewer").hidden = false;
+}
+$("vClose").addEventListener("click", closeViewer);
+$("vWin").addEventListener("click", () => { openWindow(viewerUrl); });
+$("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) closeViewer(); });
+
 function card(it) {
   const kids = [];
   if (it.thumb) {
@@ -432,7 +538,10 @@ function card(it) {
   const meta = [it.author, pub ? "게시 " + pub : "", "수집 " + relative(it.collectedAt)].filter(Boolean).join(" · ");
   kids.push(el("div", { class: "body" }, [el("span", { class: "badge", text: LABELS[it.source] || it.source }), el("div", { class: "title", text: it.title }), el("div", { class: "meta", text: meta })]));
   const safe = /^https:\/\//.test(it.url || "") ? it.url : "#";
-  return el("a", { class: "card", href: safe, target: "_blank", rel: "noopener noreferrer" }, kids);
+  const a = el("a", { class: "card", href: safe, target: "_blank", rel: "noopener noreferrer" }, kids);
+  // 일반 클릭은 이 페이지에서 보기/새 크롬 창으로, Ctrl·휠 클릭은 기본 동작(새 탭)을 유지합니다.
+  a.addEventListener("click", (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0 || safe === "#") return; e.preventDefault(); openItem(it); });
+  return a;
 }
 
 function renderTabs() {
@@ -718,6 +827,76 @@ $("clear").addEventListener("click", async () => {
   clearTimeout(clearArmed); clearArmed = null; $("clearAsk").hidden = true;
   await call("clearItems").catch(showErr);
 });
+
+
+/* ---------- 계정(Supabase) : 로그인하면 저장된 연결 코드를 불러와 확장에 자동 설정 ---------- */
+const SB_URL = "", SB_KEY = ""; // Supabase 프로젝트 주소와 anon(공개) 키를 넣으면 계정 기능이 켜집니다.
+let sb = null, pairBusy = false;
+function acctSay(t, isErr) { const m = $("acctMsg"); m.textContent = t || ""; m.hidden = !t; m.className = isErr ? "error" : "hint"; }
+function randomHex() { return Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, "0")).join(""); }
+async function pairFlow() {
+  if (pairBusy) return;
+  pairBusy = true;
+  try {
+    acctSay("연결 코드를 불러오는 중…");
+    const got = await sb.from("pairing").select("token").maybeSingle();
+    if (got.error) throw got.error;
+    let tok = got.data && got.data.token;
+    if (!tok) {
+      tok = randomHex();
+      const ins = await sb.from("pairing").insert({ token: tok });
+      if (ins.error) throw ins.error;
+    }
+    token = tok;
+    let st;
+    try { st = await call("status", {}); }
+    catch (e) { throw new Error("확장 프로그램이 응답하지 않습니다. 확장 v0.11.0 이상이 설치되어 있는지 확인하고 이 페이지를 새로고침하세요."); }
+    if (!st || typeof st.paired !== "boolean") throw new Error("확장이 오래된 버전입니다. v0.11.0 이상으로 업데이트한 뒤 새로고침하세요.");
+    if (!st.match) {
+      if (st.paired) throw new Error("이 확장은 다른 코드로 이미 연결되어 있습니다. 확장 화면에서 '연결 해제'를 누른 뒤 다시 시도하세요.");
+      await call("adopt", { token: tok });
+    }
+    acctSay("");
+    await connect(tok, true);
+  } catch (e) {
+    acctSay((e && e.message) || "연결하지 못했습니다.", true);
+  } finally { pairBusy = false; }
+}
+function onSession(session) {
+  $("acctForm").hidden = !!session;
+  $("acctUser").hidden = !session;
+  if (session) { $("acctWho").textContent = session.user.email + " 로그인됨"; pairFlow(); }
+}
+async function initAccount() {
+  if (!SB_URL || !SB_KEY) return;
+  $("acct").hidden = false;
+  try {
+    await new Promise((ok, no) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js";
+      sc.onload = ok; sc.onerror = () => no(new Error("로그인 모듈을 불러오지 못했습니다."));
+      document.head.appendChild(sc);
+    });
+    sb = window.supabase.createClient(SB_URL, SB_KEY);
+    sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => onSession(session), 0); });
+    $("acctForm").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      acctSay("");
+      const r = await sb.auth.signInWithPassword({ email: $("acctEmail").value.trim(), password: $("acctPw").value });
+      if (r.error) acctSay("로그인하지 못했습니다: " + r.error.message, true);
+    });
+    $("acctSignup").addEventListener("click", async () => {
+      acctSay("");
+      const email = $("acctEmail").value.trim(), password = $("acctPw").value;
+      if (!email || password.length < 6) { acctSay("이메일과 6자 이상 비밀번호를 입력하세요.", true); return; }
+      const r = await sb.auth.signUp({ email, password });
+      if (r.error) acctSay("가입하지 못했습니다: " + r.error.message, true);
+      else if (!r.data.session) acctSay("확인 메일을 보냈습니다. 메일의 링크를 누른 뒤 로그인하세요.");
+    });
+    $("acctOut").addEventListener("click", () => { sb.auth.signOut(); });
+  } catch (e) { acctSay(e.message, true); }
+}
+initAccount();
 
 renderAll();
 initStore();
