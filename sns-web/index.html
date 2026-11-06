@@ -155,7 +155,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
       <div id="acct" hidden>
         <p class="hint">계정으로 로그인하면 저장된 연결 코드가 자동으로 불러와집니다. 처음 가입하면 코드가 만들어져 확장에 자동 설정됩니다.</p>
         <form id="acctForm" class="row">
-          <input id="acctEmail" type="email" placeholder="이메일" aria-label="이메일" autocomplete="username" required>
+          <input id="acctEmail" type="text" placeholder="아이디(영문·숫자 3~30자)" aria-label="아이디" autocomplete="username" required minlength="3" maxlength="30">
           <input id="acctPw" type="password" placeholder="비밀번호(6자 이상)" aria-label="비밀번호" autocomplete="current-password" required minlength="6">
           <button class="primary" type="submit">로그인</button>
           <button id="acctSignup" type="button">가입</button>
@@ -841,11 +841,11 @@ async function api(action, body) {
 }
 function acctSay(t, isErr) { const m = $("acctMsg"); m.textContent = t || ""; m.hidden = !t; m.className = isErr ? "error" : "hint"; }
 function setSess(s) { sess = s || ""; try { if (sess) localStorage.setItem("snsSess", sess); else localStorage.removeItem("snsSess"); } catch (e) {} }
-async function pairFlow(email, tok) {
+async function pairFlow(uid, tok) {
   if (pairBusy) return;
   pairBusy = true;
   try {
-    $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = email + " 로그인됨";
+    $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = uid + " 로그인됨";
     acctSay("확장에 연결하는 중…");
     token = tok;
     let st;
@@ -867,10 +867,10 @@ async function initAccount() {
   const doAuth = async (action) => {
     acctSay("");
     try {
-      const j = await api(action, { email: $("acctEmail").value.trim(), password: $("acctPw").value });
+      const j = await api(action, { id: $("acctEmail").value.trim(), password: $("acctPw").value });
       $("acctPw").value = "";
       setSess(j.session);
-      pairFlow(j.email, j.token);
+      pairFlow(j.id, j.token);
     } catch (e) { acctSay(e.message, true); }
   };
   $("acctForm").addEventListener("submit", (ev) => { ev.preventDefault(); doAuth("login"); });
@@ -880,7 +880,7 @@ async function initAccount() {
     setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; acctSay("");
   });
   if (sess) {
-    try { const j = await api("me"); pairFlow(j.email, j.token); }
+    try { const j = await api("me"); pairFlow(j.id, j.token); }
     catch (e) { setSess(""); }
   }
 }

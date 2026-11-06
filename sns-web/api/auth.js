@@ -46,9 +46,9 @@ module.exports = async (req, res) => {
     const act = body.action;
 
     if (act === "signup" || act === "login") {
-      const email = String(body.email || "").trim().toLowerCase();
+      const email = String(body.id || "").trim().toLowerCase();
       const pw = String(body.password || "");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return fail(400, "이메일 형식이 올바르지 않습니다.");
+      if (!/^[a-z0-9_.-]{3,30}$/.test(email)) return fail(400, "아이디는 영문·숫자·_ . - 로 3~30자여야 합니다.");
       if (pw.length < 6 || pw.length > 200) return fail(400, "비밀번호는 6자 이상이어야 합니다.");
       const ip = String(req.headers["x-forwarded-for"] || "?").split(",")[0].trim();
       const rlKey = "rl:" + sha(ip);
@@ -62,8 +62,8 @@ module.exports = async (req, res) => {
         const token = crypto.randomBytes(16).toString("hex");
         const rec = JSON.stringify({ salt, hash: hashPw(pw, salt), token });
         const ok = await redis(["SET", "user:" + email, rec, "NX"]);
-        if (ok !== "OK") return fail(409, "이미 가입된 이메일입니다.");
-        return send(200, { ok: true, session: await newSession(email), email, token });
+        if (ok !== "OK") return fail(409, "이미 사용 중인 아이디입니다.");
+        return send(200, { ok: true, session: await newSession(email), id: email, token });
       }
       const raw = await redis(["GET", "user:" + email]);
       let good = false, u = null;
@@ -72,13 +72,13 @@ module.exports = async (req, res) => {
         const a = Buffer.from(hashPw(pw, u.salt), "hex"), b = Buffer.from(u.hash, "hex");
         good = a.length === b.length && crypto.timingSafeEqual(a, b);
       }
-      if (!good) { await bump(); return fail(401, "이메일 또는 비밀번호가 맞지 않습니다."); }
-      return send(200, { ok: true, session: await newSession(email), email, token: u.token });
+      if (!good) { await bump(); return fail(401, "아이디 또는 비밀번호가 맞지 않습니다."); }
+      return send(200, { ok: true, session: await newSession(email), id: email, token: u.token });
     }
     if (act === "me") {
       const f = await userBySession(body.session);
       if (!f) return fail(401, "로그인이 필요합니다.");
-      return send(200, { ok: true, email: f.email, token: f.user.token });
+      return send(200, { ok: true, id: f.email, token: f.user.token });
     }
     if (act === "logout") {
       if (typeof body.session === "string" && body.session.length < 200) await redis(["DEL", "sess:" + sha(body.session)]);
