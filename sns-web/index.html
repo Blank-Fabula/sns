@@ -62,6 +62,10 @@ input[type="search"] { width: 200px; }
 .modal .foot { display: flex; justify-content: flex-end; }
 .viewer-back { position: fixed; inset: 0; z-index: 30; background: rgba(10, 18, 20, .6); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .viewer { width: min(760px, 100%); max-height: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.vnav { position: fixed; top: 50%; transform: translateY(-50%); z-index: 31; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--fg, inherit); font-size: 22px; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer; }
+.vnav:disabled { opacity: .35; cursor: default; }
+#vPrev { left: max(8px, calc(50% - 380px - 52px)); }
+#vNext { right: max(8px, calc(50% - 380px - 52px)); }
 .viewer .vh { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .viewer .vh b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .viewer .vb { overflow: auto; background: var(--bg); display: flex; justify-content: center; }
@@ -148,6 +152,8 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding
 </div>
 
 <div id="viewer" class="viewer-back" role="dialog" aria-modal="true" aria-label="글 보기" hidden>
+  <button id="vPrev" class="vnav" type="button" aria-label="이전 글">‹</button>
+  <button id="vNext" class="vnav" type="button" aria-label="다음 글">›</button>
   <div class="viewer">
     <div class="vh"><b id="vTitle"></b><button id="vWin" type="button">새 크롬 창으로 열기</button><button id="vClose" type="button" aria-label="닫기">×</button></div>
     <div id="vBody" class="vb"></div>
@@ -469,6 +475,26 @@ function embedFor(it) {
 }
 function openWindow(url) { call("openWindow", { url }).catch(() => window.open(url, "_blank", "noopener")); }
 let viewerUrl = "";
+let viewCtx = [], viewIdx = -1;
+// 누른 카드가 속한 줄(또는 격자)의 카드들을 이전/다음 이동 순서로 씁니다.
+function setViewCtx(a, it) {
+  const p = a.parentElement;
+  viewCtx = p ? Array.from(p.children).filter((n) => n._item).map((n) => n._item) : [it];
+  viewIdx = viewCtx.indexOf(it);
+  if (viewIdx < 0) { viewCtx = [it]; viewIdx = 0; }
+}
+function updateNav() {
+  const many = viewCtx.length > 1;
+  $("vPrev").hidden = $("vNext").hidden = !many;
+  $("vPrev").disabled = viewIdx <= 0;
+  $("vNext").disabled = viewIdx >= viewCtx.length - 1;
+}
+function navView(d) {
+  const n = viewIdx + d;
+  if (n < 0 || n >= viewCtx.length) return;
+  viewIdx = n;
+  openItem(viewCtx[n]);
+}
 function closeViewer() { $("viewer").hidden = true; $("vBody").textContent = ""; }
 const postCache = new Map();
 function renderPost(p, it) {
@@ -497,6 +523,7 @@ function renderPost(p, it) {
 }
 async function openPost(it) {
   viewerUrl = it.url;
+  updateNav();
   $("vTitle").textContent = it.author || "유튜브 게시물";
   const body = $("vBody");
   body.textContent = "";
@@ -519,6 +546,7 @@ function openItem(it) {
   const e = embedFor(it);
   if (!e) { openWindow(it.url); return; }
   viewerUrl = it.url;
+  updateNav();
   $("vTitle").textContent = it.title || it.author || "";
   const f = el("iframe", { src: e.src, title: "글 보기", allow: "autoplay; encrypted-media; picture-in-picture; fullscreen", allowfullscreen: "", referrerpolicy: "strict-origin-when-cross-origin" });
   if (e.ratio) f.style.aspectRatio = e.ratio; else f.style.height = e.h + "px";
@@ -528,6 +556,24 @@ function openItem(it) {
   $("viewer").hidden = false;
 }
 $("vClose").addEventListener("click", closeViewer);
+$("vPrev").addEventListener("click", () => navView(-1));
+$("vNext").addEventListener("click", () => navView(1));
+// 글 보기 창 바깥의 회색 영역에서 휠을 돌리면 이전/다음 글로 이동합니다(아래로 = 다음).
+let wheelNavAt = 0;
+$("viewer").addEventListener("wheel", (ev) => {
+  if (ev.target.closest && ev.target.closest(".viewer")) return;
+  ev.preventDefault();
+  const now = Date.now();
+  if (now - wheelNavAt < 450 || Math.abs(ev.deltaY) < 4) return;
+  wheelNavAt = now;
+  navView(ev.deltaY > 0 ? 1 : -1);
+}, { passive: false });
+document.addEventListener("keydown", (e) => {
+  if ($("viewer").hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+  if (e.key === "ArrowLeft") navView(-1); else if (e.key === "ArrowRight") navView(1);
+});
 $("vWin").addEventListener("click", () => { openWindow(viewerUrl); });
 $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) closeViewer(); });
 
@@ -544,8 +590,9 @@ function card(it) {
   kids.push(el("div", { class: "body" }, [el("span", { class: "badge", text: LABELS[it.source] || it.source }), el("div", { class: "title", text: it.title }), el("div", { class: "meta", text: meta })]));
   const safe = /^https:\/\//.test(it.url || "") ? it.url : "#";
   const a = el("a", { class: "card", href: safe, target: "_blank", rel: "noopener noreferrer" }, kids);
+  a._item = it;
   // 일반 클릭은 이 페이지에서 보기/새 크롬 창으로, Ctrl·휠 클릭은 기본 동작(새 탭)을 유지합니다.
-  a.addEventListener("click", (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0 || safe === "#") return; e.preventDefault(); openItem(it); });
+  a.addEventListener("click", (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0 || safe === "#") return; e.preventDefault(); setViewCtx(a, it); openItem(it); });
   return a;
 }
 
@@ -558,7 +605,7 @@ function renderTabs() {
   nav.textContent = "";
   Object.keys(LABELS).forEach((k) => {
     const b = el("button", { type: "button", class: k === activeTab ? "active" : "" }, [el("span", { text: LABELS[k] }), el("span", { class: "n", text: String(counts[k] || 0) })]);
-    b.addEventListener("click", () => { activeTab = k; renderList(); });
+    b.addEventListener("click", () => { if (k === "people") { personFocus = ""; personPlat = ""; } activeTab = k; renderList(); });
     nav.appendChild(b);
   });
 }
