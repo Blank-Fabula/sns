@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SNS 모아보기</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="top">
+    <h1>SNS 모아보기</h1>
+    <input id="q" type="search" placeholder="제목·작성자 검색" aria-label="검색">
+    <select id="period" aria-label="보기 기간">
+      <option value="1">최근 1일</option>
+      <option value="3">최근 3일</option>
+      <option value="7">최근 7일</option>
+      <option value="14">최근 14일</option>
+      <option value="30">최근 30일</option>
+      <option value="60">최근 60일</option>
+      <option value="0">전체</option>
+    </select>
+    <select id="sort" aria-label="정렬">
+      <option value="published" selected>게시 시각 순</option>
+      <option value="collected">수집 순</option>
+    </select>
+    <button id="export" type="button">내보내기(JSON)</button>
+    <button id="clear" type="button" class="danger">전체 삭제</button>
+  </header>
+
+  <p id="fatal" class="error fatal" role="alert" hidden></p>
+
+  <nav id="tabs" aria-label="출처"></nav>
+
+  <section class="settings" aria-label="수집 설정">
+    <span>수집 켜기:</span>
+    <label><input type="checkbox" data-key="youtube"> 유튜브</label>
+    <label><input type="checkbox" data-key="x"> X</label>
+    <label><input type="checkbox" data-key="instagram"> 인스타그램</label>
+    <span class="hint">각 사이트를 직접 열어 둔 화면에서만 수집됩니다. 데이터는 이 브라우저 안에만 저장됩니다.</span>
+  </section>
+
+  <section class="tracking" aria-label="추적 계정">
+    <h2>추적 계정</h2>
+    <form id="addForm" class="row">
+      <select id="tplatform" aria-label="플랫폼">
+        <option value="youtube">유튜브</option>
+        <option value="x">X</option>
+        <option value="instagram">인스타그램</option>
+      </select>
+      <input id="thandle" type="text" placeholder="이름 검색(Enter) · @계정 · 주소(메인 주소 = 내 피드)" aria-label="계정" autocomplete="off">
+      <button type="submit">추가</button>
+      <button id="searchBtn" type="button">이름으로 검색</button>
+    </form>
+    <div id="searchResults" class="results" hidden></div>
+    <p id="addError" class="error" hidden></p>
+    <div id="tracked" class="chips"></div>
+    <div class="row">
+      <button id="checkNow" type="button">기간 내 글 가져오기</button>
+      <label><input id="autoEnabled" type="checkbox"> 자동 확인</label>
+      <select id="autoHours" aria-label="자동 확인 주기">
+        <option value="1">1시간마다</option>
+        <option value="3">3시간마다</option>
+        <option value="6">6시간마다</option>
+        <option value="12">12시간마다</option>
+      </select>
+      <span id="status" class="hint"></span>
+    </div>
+    <p class="hint">
+      채널·프로필 주소(예: youtube.com/@이름)는 그 계정만, 사이트 메인 주소(youtube.com, x.com, instagram.com)는 로그인된 내 구독 피드·홈 타임라인·홈 피드를 가져옵니다.
+      계정을 추가하거나 "기간 내 글 가져오기"를 누르면, 새 창이 열려 계정 페이지를 차례로 방문하며 설정한 기간(기본 7일)의 글이 나올 때까지 스크롤해 수집한 뒤 자동으로 닫힙니다.
+      창이 열려 있는 동안에는 건드리지 마세요. 유튜브 채널은 영상 탭과 게시물 탭을 차례로 방문합니다.
+      자동 확인(기본 꺼짐)은 웹 화면(SNS 모아보기)을 보고 있을 때만 동작합니다. 화면을 보지 않는 동안은 쉬다가, 다시 볼 때 마지막 확인 후 주기가 지나 있으면 바로 한 번 확인합니다.
+      X·인스타그램은 자동 수집이 약관상 제한될 수 있으니 계정 수를 적게, 주기를 길게 두세요.
+    </p>
+  </section>
+
+  <section class="tracking" aria-label="웹 연결">
+    <h2>웹 화면 연결 코드</h2>
+    <div class="row">
+      <input id="bridgeToken" type="text" readonly aria-label="웹 연결 코드">
+      <button id="copyToken" type="button">복사</button>
+      <button id="makeToken" type="button" hidden>코드 직접 만들기</button>
+      <button id="dropToken" type="button" hidden>연결 해제</button>
+      <span id="copyMsg" class="hint"></span>
+    </div>
+    <p id="tokenState" class="hint"></p>
+    <p class="hint">웹 모아보기 페이지에서 로그인하면 계정에 저장된 코드가 자동으로 설정됩니다. 직접 쓰려면 이 코드를 붙여넣으면 이 확장의 데이터를 웹 화면에서 볼 수 있습니다. 코드를 아는 사람만 연결할 수 있으니 공유하지 마세요.</p>
+  </section>
+
+  <main id="grid"></main>
+  <p id="empty" hidden>아직 모은 글이 없습니다. 유튜브·X·인스타그램에 로그인해서 평소처럼 둘러보면 여기에 쌓입니다.</p>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
