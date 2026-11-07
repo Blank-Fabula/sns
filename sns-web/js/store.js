@@ -97,6 +97,7 @@ async function doSync(s) {
   finally { syncing = false; updateConnText(); }
 }
 
+const removedIds = new Set();
 let lastClosedShown = 0, pauseDismissed = false, lastAutoResume = 0;
 let lastDataSig = "", lastStatusSig = "", lastLoginSig = "";
 async function refresh() {
@@ -104,6 +105,10 @@ async function refresh() {
   const extItems = Object.values(d.items || {});
   settings = d.settings || {};
   tracked = Array.isArray(d.tracked) ? d.tracked : [];
+  if (removedIds.size && tracked.some((t) => removedIds.has(t.id))) {
+    tracked = tracked.filter((t) => !removedIds.has(t.id));
+    call("set", { tracked }).catch(() => {}); // 지운 계정이 확장에 남아 있으면 다시 지웁니다
+  }
   items = mergeSaved(extItems);
   // 새 PC의 확장은 추적 계정이 비어 있으니, 서버에 저장된 계정 목록을 한 번 가져와 채웁니다.
   if (!tracked.length && savedMeta && Array.isArray(savedMeta.tracked) && savedMeta.tracked.length && !importedTracked) {

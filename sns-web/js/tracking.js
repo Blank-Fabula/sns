@@ -92,6 +92,7 @@ $("groupForm").addEventListener("submit", async (ev) => {
   await applyToSelected((c) => { if (name) c.group = name; else delete c.group; return c; });
   if (selIds.length) $("gName").value = "";
 });
+$("gClear").addEventListener("click", () => applyToSelected((c) => { delete c.group; return c; }));
 $("daysForm").addEventListener("submit", (ev) => {
   ev.preventDefault();
   const d = Number($("dDays").value);
@@ -117,6 +118,7 @@ $("rmOk").addEventListener("click", async () => {
   items = items.filter((it) => !set.has(it.via)); // 이 계정으로 모은 글도 함께 지웁니다
   savedItems = savedItems.filter((it) => !set.has(it.via)); // 서버 저장본에서도 뺍니다
   selIds = [];
+  ids.forEach((i) => removedIds.add(i)); // 확장이 아직 옛 목록을 돌려줘도 다시 나타나지 않게 합니다
   renderTracked(); renderTabs(); renderList();
   await call("set", { tracked }).catch(showErr);
   await call("removeVia", { ids }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
