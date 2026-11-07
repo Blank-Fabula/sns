@@ -155,7 +155,13 @@ function autoTick(force) {
   lastAutoTry = Date.now();
   call("checkAuto").catch(() => {});
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoTick(true); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  // 웹 화면으로 돌아오면 일시정지 모달을 바로 치우고(3초 주기를 기다리지 않고) 곧바로 상태를 다시 읽어 이어서 수집합니다.
+  $("pausedModal").hidden = true;
+  if (connected) refresh().catch(() => {});
+  autoTick(true);
+});
 
 async function connect(tok, fromForm) {
   token = tok;

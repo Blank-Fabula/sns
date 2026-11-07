@@ -166,6 +166,8 @@ $("searchBtn").addEventListener("click", async () => {
   const box = $("searchResults"), err = $("addError");
   err.hidden = true;
   if (!q) { err.textContent = "검색할 이름을 입력하세요."; err.hidden = false; return; }
+  // 수집이 진행 중이면 이름 검색 창과 수집창이 서로 가려 수집이 일시정지되므로, 끝난 뒤에 검색하게 합니다.
+  if (checkStatus && checkStatus.running) { err.textContent = "가져오는 중에는 이름 검색을 할 수 없습니다. 수집이 끝난 뒤 다시 눌러 주세요."; err.hidden = false; return; }
   const platform = $("tplatform").value;
   box.hidden = false; box.textContent = "";
   box.appendChild(el("p", { class: "hint", text: "검색 중… 크롬에서 탭이 잠깐 열렸다 닫힙니다." }));
