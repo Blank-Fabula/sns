@@ -24,19 +24,16 @@
 
 <div class="toolbar">
   <div id="loginBar" class="loginbar" hidden></div>
-  <button id="checkNow" class="primary" type="button" hidden>가져오기</button>
-  <select id="period" aria-label="기간(가져오기·보기 공통)" title="가져올 기간과 보여줄 기간이 같이 바뀝니다">
-    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option>
-  </select>
+  <button id="checkNow" class="primary" type="button" hidden>지금 최신화</button>
 </div>
 
 <div id="loginModal" class="modal-back" role="dialog" aria-modal="true" aria-labelledby="lmTitle" hidden>
   <div class="modal">
     <button id="lmX" class="x" type="button" aria-label="닫기">×</button>
-    <h2 id="lmTitle">로그인이 필요한 매체가 있습니다</h2>
-    <p class="hint">로그인하지 않은 매체는 글을 가져올 수 없습니다. 같은 크롬에서 로그인한 뒤 '상태 다시 확인'을 눌러 주세요.</p>
+    <h2 id="lmTitle">로그인이 필요합니다</h2>
+    <p class="hint">로그인하지 않은 매체는 글을 가져올 수 없습니다. '로그인 하기'로 열리는 창에서 직접 로그인한 뒤 '다시 시도'를 눌러 주세요.</p>
     <div id="lmList"></div>
-    <div class="foot"><button id="lmLater" type="button">나중에</button></div>
+    <div class="foot"><button id="lmLater" type="button">나중에</button><button id="lmRetry" class="primary" type="button">다시 시도</button></div>
   </div>
 </div>
 
@@ -129,6 +126,7 @@
         <input id="thandle" type="text" placeholder="이름 검색(Enter) · @계정 · 주소(메인 주소 = 내 피드)" aria-label="계정" autocomplete="off">
         <button type="submit">추가</button>
         <button id="searchBtn" type="button">이름으로 검색</button>
+        <select id="addDays" aria-label="이 계정에서 가져올 기간" title="새로 추가하는 계정에서 가져올 기간(계정마다 따로 정해집니다)"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option></select>
       </form>
       <div id="searchResults" class="results" hidden></div>
       <p id="addError" class="error" hidden></p>
@@ -137,7 +135,7 @@
         <select id="autoHours" aria-label="자동 확인 주기"><option value="1">1시간마다</option><option value="3">3시간마다</option><option value="6">6시간마다</option><option value="12">12시간마다</option></select>
       </div>
       <p id="status" class="hint"></p>
-      <p class="hint">가져오기를 누르면 크롬에 새 창이 열려 계정 페이지를 차례로 방문하고 끝나면 닫힙니다. 창이 열려 있는 동안에는 건드리지 마세요. X·인스타그램은 자동 수집이 약관상 제한될 수 있습니다.</p>
+      <p class="hint">지금 최신화를 누르면 크롬에 새 창이 열려 계정 페이지를 차례로 방문하고 끝나면 닫힙니다. 창이 열려 있는 동안에는 건드리지 마세요. X·인스타그램은 자동 수집이 약관상 제한될 수 있습니다.</p>
       </div>
       <div id="ptManage" hidden>
       <div id="tracked" class="chips"></div>

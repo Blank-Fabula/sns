@@ -45,7 +45,7 @@ let loginState = {}, modalShown = false, loginAsked = false;
 // 로그인 창 자동 열기는 "내가 확인/가져오기를 누른 직후 30초" 안에, 매체마다 한 번만 합니다.
 // (로그인 창 자체나 새로고침이 다시 창을 여는 일이 없게 합니다.)
 let promptArmedAt = 0, promptedPlat = {}, loginWatch = 0;
-function armLoginPrompt() { promptArmedAt = Date.now(); promptedPlat = {}; }
+function armLoginPrompt() { /* 로그인 창은 이제 모달의 '로그인 하기' 버튼으로만 엽니다 */ }
 const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
 function renderLogin() {
   const need = connected ? needLogin() : [];
@@ -65,18 +65,25 @@ function renderLogin() {
       bar.appendChild(b);
     });
   }
-  // 방금 확인한 결과에서 로그인이 필요한 매체가 나오면: 잠깐 안내를 띄우고, 그 매체 로그인 창을 맨 앞에 새로 엽니다.
-  // (내가 확인·가져오기를 누른 직후 30초 안에, 매체마다 한 번만 띄웁니다.)
-  if (connected) {
-    need.forEach((p) => {
-      if (!promptArmedAt || Date.now() - promptArmedAt > 30000 || promptedPlat[p]) return;
-      promptedPlat[p] = true;
-      showNotice(PLATFORM[p] + " 로그인이 필요합니다");
+  if (!$("loginModal").hidden) renderLoginModal();
+}
+// 로그인이 필요한 매체 목록 모달: 매체마다 '로그인 하기' 버튼, 로그인되면 목록에서 빠집니다.
+let modalPlats = [];
+function renderLoginModal() {
+  const list = $("lmList");
+  list.textContent = "";
+  const need = modalPlats.filter((p) => !(loginState[p] && loginState[p].loggedIn === true));
+  if (!need.length) list.appendChild(el("p", { class: "hint", text: "필요한 매체가 모두 로그인되었습니다. '다시 시도'를 눌러 주세요." }));
+  need.forEach((p) => {
+    const b = el("button", { type: "button", class: "lb", text: "로그인 하기" });
+    b.addEventListener("click", () => {
+      loginWatch = Date.now(); // 로그인 후 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
       call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
     });
-  }
-  $("loginModal").hidden = true;
+    list.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center" }, [el("span", { text: PLATFORM[p] + " 로그인이 필요합니다" }), b]));
+  });
 }
+function openLoginModal(plats) { modalPlats = plats; renderLoginModal(); $("loginModal").hidden = false; }
 // 로그인 링크는 확장이 별도의 작은 창으로 엽니다(실패하면 새 탭으로 엽니다).
 function loginLink(p, text, cls) {
   // 링크(<a>)가 아니라 버튼으로 만들어, 확장이 여는 창 말고 기존 창에서 따로 열리지 않게 합니다.
@@ -87,6 +94,7 @@ function loginLink(p, text, cls) {
 function closeLoginModal() { $("loginModal").hidden = true; }
 $("lmX").addEventListener("click", closeLoginModal);
 $("lmLater").addEventListener("click", closeLoginModal);
+$("lmRetry").addEventListener("click", () => { closeLoginModal(); startRefresh(); });
 $("loginModal").addEventListener("click", (e) => { if (e.target === $("loginModal")) closeLoginModal(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLoginModal(); closeViewer(); } });
 

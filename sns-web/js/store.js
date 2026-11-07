@@ -21,7 +21,7 @@ async function pullSaved() {
     savedItems = out; savedMeta = meta; savedAt = Number(meta.savedAt) || 0;
     baseTrackedSig = JSON.stringify(meta.tracked || []);
     if (!connected) {
-      if ([7, 14, 30, 60].includes(meta.windowDays)) { winDays = periodDays = meta.windowDays; $("period").value = String(winDays); }
+      if ([7, 14, 30, 60].includes(meta.windowDays)) { winDays = periodDays = meta.windowDays; }
       items = out;
       tracked = Array.isArray(meta.tracked) ? meta.tracked : [];
       settings = meta.settings || {};

@@ -5,9 +5,8 @@ function relative(ms) {
   for (const [u, s] of [["day", 86400], ["hour", 3600], ["minute", 60]]) if (Math.abs(diff) >= s) return rtf.format(Math.round(diff / s), u);
   return "방금";
 }
-// 기간은 하나로 합쳤습니다: 확장이 가져올 기간(winDays)과 화면에 보여줄 기간(periodDays)이 같은 값입니다.
+// 기간은 계정마다 따로 정합니다(계정에 days가 있으면 그 기간으로 가져오고 보여줍니다). 없는 계정은 확장의 기본 기간(periodDays)을 따릅니다.
 let periodDays = 7;
-$("period").value = String(periodDays);
 const publishedMs = (it) => { const t = Date.parse(it.publishedAt || ""); return Number.isNaN(t) ? it.collectedAt : t; };
 // 계정별 기간이 있으면 그 계정의 글은 그 기간으로, 없으면 맨 위 기간으로 거릅니다.
 const inPeriod = (it) => {
@@ -363,7 +362,7 @@ function renderList() {
     list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
   }
   $("empty").hidden = list.length > 0;
-  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '가져오기'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 60일)의 글이 여기에 모입니다.";
+  $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '지금 최신화'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 60일)의 글이 여기에 모입니다.";
 }
 function renderTracked() {
   const box = $("tracked");
@@ -391,13 +390,12 @@ function renderTracked() {
   $("selClear").hidden = !selIds.length;
   // 한 개만 골랐다면 그 계정의 현재 기간을 기간 선택에 보여줍니다.
   if (document.activeElement !== $("dDays")) { const cur = selIds.length === 1 ? tracked.find((t) => t.id === selIds[0]) : null; $("dDays").value = String((cur && cur.days) || 0); }
-  const pd = $("period");
   periodDays = winDays;
-  if (document.activeElement !== pd) pd.value = String(winDays);
+  $("dDays").options[0].textContent = "기본(" + winDays + "일)";
   const ae = $("autoEnabled"), ah = $("autoHours");
   if (document.activeElement !== ae) ae.checked = !!autoCheck.enabled;
   if (document.activeElement !== ah) ah.value = String(autoCheck.hours || 3);
-  $("checkNow").disabled = !!checkStatus.running || tracked.length === 0;
+  $("checkNow").disabled = !!checkStatus.running || tracked.length === 0 || (typeof refreshing !== "undefined" && refreshing);
   $("status").textContent = checkStatus.running ? "확인 중… " + (checkStatus.message || "") : checkStatus.lastRun ? "마지막 확인 " + relative(checkStatus.lastRun) + " · " + (checkStatus.message || "") : tracked.length ? "아직 확인한 적 없음" : "계정을 추가하면 여기서 신규 글을 확인합니다";
 }
 function renderSettings() {

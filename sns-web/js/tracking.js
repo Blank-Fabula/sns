@@ -121,11 +121,9 @@ $("rmOk").addEventListener("click", async () => {
   await call("set", { tracked }).catch(showErr);
   await call("removeVia", { ids }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
 });
-$("period").addEventListener("change", () => {
-  winDays = periodDays = Number($("period").value);
-  renderList();
-  if (connected) call("set", { windowDays: winDays }).catch(showErr);
-});
+// 새로 추가하는 계정에서 가져올 기간(마지막 선택을 기억합니다). 추가한 뒤에는 '추적 계정 관리'에서 계정별로 바꿉니다.
+try { const v = localStorage.getItem("snsAddDays"); if (["7", "14", "30", "60"].includes(v)) $("addDays").value = v; } catch (e) {}
+$("addDays").addEventListener("change", () => { try { localStorage.setItem("snsAddDays", $("addDays").value); } catch (e) {} });
 document.querySelectorAll("#platPanel input[data-key]").forEach((b) => b.addEventListener("change", async () => { settings[b.dataset.key] = b.checked; await call("set", { settings }).catch(showErr); }));
 // 주소나 @계정이 아니면(예: 그냥 이름) 추가하지 않고 이름으로 검색합니다.
 const isDirect = (v) => /^https?:\/\//i.test(v) || v.startsWith("@") || SITE_START.test(v);
@@ -139,6 +137,7 @@ $("addForm").addEventListener("submit", async (ev) => {
   const acc = r.account;
   const grp = $("tgroup").value.trim().slice(0, 30);
   if (grp && acc.kind !== "feed") acc.group = grp;
+  if (!acc.days) acc.days = Number($("addDays").value) || 7; // 이 계정만의 가져올 기간
   if (tracked.some((t) => t.id === acc.id)) { err.textContent = "이미 추가된 계정입니다."; err.hidden = false; return; }
   if (tracked.length >= MAX_TRACKED) { err.textContent = "계정은 최대 " + MAX_TRACKED + "개까지 추가할 수 있습니다."; err.hidden = false; return; }
   const before = tracked;
@@ -156,6 +155,7 @@ function addAccount(acc) {
   if (tracked.length >= MAX_TRACKED) { err.textContent = "계정은 최대 " + MAX_TRACKED + "개까지 추가할 수 있습니다."; err.hidden = false; return Promise.resolve(false); }
   const grp = $("tgroup").value.trim().slice(0, 30);
   if (grp) acc.group = grp;
+  if (!acc.days) acc.days = Number($("addDays").value) || 7; // 이 계정만의 가져올 기간
   const before = tracked;
   tracked = [...tracked, acc];
   renderTracked(); renderList();
@@ -204,7 +204,32 @@ $("searchBtn").addEventListener("click", async () => {
 
 $("autoEnabled").addEventListener("change", () => { autoCheck = { ...autoCheck, enabled: $("autoEnabled").checked }; call("set", { autoCheck }).catch(showErr); });
 $("autoHours").addEventListener("change", () => { autoCheck = { ...autoCheck, hours: Number($("autoHours").value) }; call("set", { autoCheck }).catch(showErr); });
-$("checkNow").addEventListener("click", () => { armLoginPrompt(); $("checkNow").disabled = true; call("checkNow", { only: "" }).catch(showErr); });
+// 지금 최신화: 먼저 로그인 상태를 확인하고, 로그인이 안 된 매체가 있으면 모달(로그인 하기)을 띄웁니다. 모두 로그인되어 있으면 바로 가져옵니다.
+let refreshing = false;
+async function startRefresh() {
+  if (refreshing || !connected) return;
+  refreshing = true;
+  const btn = $("checkNow");
+  btn.disabled = true; btn.textContent = "로그인 확인 중…";
+  try {
+    const plats = Array.from(new Set(tracked.filter((t) => settings[t.platform] !== false).map((t) => t.platform)));
+    const t0 = Date.now();
+    if (plats.length) {
+      await call("checkLogin", { platforms: plats }).catch(() => {});
+      // 확인 결과가 올 때까지 최대 약 30초 기다립니다(못 알아낸 매체는 막지 않고 진행합니다).
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        await refresh().catch(() => {});
+        if (plats.every((p) => loginState[p] && loginState[p].at >= t0 - 1000)) break;
+      }
+    }
+    const need = plats.filter((p) => loginState[p] && loginState[p].loggedIn === false);
+    if (need.length) { openLoginModal(need); return; }
+    await call("checkNow", { only: "" });
+  } catch (e) { showErr(e); }
+  finally { refreshing = false; btn.textContent = "지금 최신화"; btn.disabled = !!(checkStatus && checkStatus.running) || tracked.length === 0; }
+}
+$("checkNow").addEventListener("click", startRefresh);
 let clearArmed = null;
 $("clear").addEventListener("click", async () => {
   if (!clearArmed) { $("clearAsk").hidden = false; clearArmed = setTimeout(() => { clearArmed = null; $("clearAsk").hidden = true; }, 4000); return; }
@@ -232,7 +257,7 @@ $("clear").addEventListener("click", async () => {
   $("cmX").addEventListener("click", close);
   $("cmClose").addEventListener("click", close);
   $("closedModal").addEventListener("click", (e) => { if (e.target === $("closedModal")) close(); });
-  $("cmRetry").addEventListener("click", () => { close(); armLoginPrompt(); call("checkNow", { only: "" }).catch(showErr); });
+  $("cmRetry").addEventListener("click", () => { close(); startRefresh(); });
 })();
 
 // 수집이 일시정지됐을 때의 모달: 이어서 수집(수집창을 앞으로) / 닫기(수집 종료)
