@@ -22,13 +22,26 @@ function call(op, payload, waitMs) {
   });
 }
 
+// 화면 전환: 홈(글 모아보기) ↔ 추적 계정 관리(따로 분리된 화면)
+let page = "home";
+function applyPage() {
+  if (!connected && page === "manage") page = "home";
+  const manage = connected && page === "manage", sett = page === "settings";
+  $("trackPanel").hidden = !manage;
+  $("setPanel").hidden = !sett;
+  document.querySelector(".layout main").hidden = manage || sett;
+  $("navManage").hidden = !connected;
+  $("navHome").classList.toggle("on", !manage && !sett && page !== "fav");
+  $("navFav").classList.toggle("on", page === "fav");
+  $("navManage").classList.toggle("on", manage);
+  $("connAcct").classList.toggle("on", sett);
+}
 function setConn(ok) {
   connected = ok;
   if (!ok) { $("loginBar").hidden = true; }
   $("connectPanel").hidden = ok;
-  $("trackPanel").hidden = !ok;
-  $("checkNow").hidden = !ok; // 가져오기 버튼은 맨 위 검색창 옆에 있고, 확장이 연결됐을 때만 보입니다
-  $("platPanel").hidden = !ok;
+  applyPage();
+  $("checkNow").hidden = false; $("checkNow").classList.toggle("off", !ok); // 새로고침 버튼은 항상 보이고, 가운데 점이 연결 상태(초록=연결됨)를 알려 줍니다
   updateConnText();
 }
 function updateConnText() {
@@ -37,10 +50,32 @@ function updateConnText() {
   if (connected) $("connText").textContent = "확장 프로그램과 연결됨 · 글 " + items.length + "건" + note;
   else if (savedAt) $("connText").textContent = "저장본을 보는 중 · 글 " + items.length + "건 · 마지막 동기화 " + relative(savedAt) + " (확장을 연결하면 새로 갱신됩니다)";
   else $("connText").textContent = "확장 프로그램과 연결되지 않았습니다." + note;
+  $("dot").title = $("connText").textContent;
 }
 
 /* ---------- 매체별 로그인 상태 ---------- */
 const LOGIN_LINK = { youtube: "https://www.youtube.com/", x: "https://x.com/i/flow/login", instagram: "https://www.instagram.com/accounts/login/" };
+const PGLYPH = { youtube: "▶", x: "X", instagram: "◎" };
+// 각 매체의 실제 아이콘(파비콘)을 불러옵니다. 못 불러오면 기호로 대신합니다.
+const PLOCAL = { youtube: "img/youtube.png", x: "img/x.png", instagram: "img/instagram.png" };
+const PDOMAIN = { youtube: "youtube.com", x: "x.com", instagram: "instagram.com" };
+function pIcon(p) {
+  const wrap = el("span", { class: "pg" });
+  const d = PDOMAIN[p];
+  // 여러 곳에서 차례로 시도합니다. 모두 실패하면 기호로 대신합니다.
+  const srcs = [
+    PLOCAL[p],
+    "https://www.google.com/s2/favicons?domain=" + d + "&sz=128",
+    "https://icons.duckduckgo.com/ip3/" + d + ".ico",
+    "https://" + (p === "youtube" ? "www.youtube.com" : p === "instagram" ? "www.instagram.com" : "x.com") + "/favicon.ico",
+  ];
+  let i = 0;
+  const img = el("img", { alt: "", referrerpolicy: "no-referrer", draggable: "false" });
+  img.addEventListener("error", () => { if (++i < srcs.length) img.src = srcs[i]; else { img.remove(); wrap.textContent = PGLYPH[p]; } });
+  img.src = srcs[0];
+  wrap.appendChild(img);
+  return wrap;
+}
 let loginState = {}, modalShown = false, loginAsked = false;
 // 로그인 창 자동 열기는 "내가 확인/가져오기를 누른 직후 30초" 안에, 매체마다 한 번만 합니다.
 // (로그인 창 자체나 새로고침이 다시 창을 여는 일이 없게 합니다.)
@@ -53,14 +88,24 @@ function renderLogin() {
   bar.textContent = "";
   bar.hidden = !connected;
   if (connected) {
-    // 매체별 로그인 버튼: 로그인되어 있으면 눌리지 않고 연한 녹색, 아니면 눌러서 로그인 창을 엽니다.
+    // 매체 아이콘 버튼
+    //  · 로그인 안 됨: 회색 테두리 + 반투명 회색이 아이콘을 덮음 (누르면 로그인 창)
+    //  · 로그인 됨: 수집 켜짐 = 초록 테두리 / 수집 꺼짐 = 빨간 테두리 (누를 때마다 켜고 끔)
     Object.keys(LOGIN_LINK).forEach((p) => {
       const on = !!(loginState[p] && loginState[p].loggedIn === true);
-      const b = el("button", { type: "button", class: "lb" + (on ? " ok" : ""), text: PLATFORM[p] + " 로그인" + (on ? " ✓" : "") });
-      if (on) { b.disabled = true; b.title = "로그인되어 있습니다"; }
-      else b.addEventListener("click", () => {
-        loginWatch = Date.now(); // 로그인하고 돌아오면 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
-        call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
+      const collect = settings[p] !== false;
+      const cls = "lb pi pi-" + p + (!on ? " nl" : collect ? " go" : " stop");
+      const tip = PLATFORM[p] + (!on ? " · 로그인이 필요합니다 (눌러서 로그인)" : collect ? " · 수집 켜짐 (눌러서 끄기)" : " · 수집 꺼짐 (눌러서 켜기)");
+      const b = el("button", { type: "button", class: cls, "aria-label": tip, title: tip, "aria-pressed": on ? String(collect) : "false" }, [pIcon(p)]);
+      b.addEventListener("click", async () => {
+        if (!on) {
+          loginWatch = Date.now(); // 로그인하고 돌아오면 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
+          call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
+          return;
+        }
+        settings = { ...settings, [p]: !collect };
+        renderLogin();
+        try { await call("set", { settings }); } catch (e) { settings = { ...settings, [p]: collect }; renderLogin(); showErr(e); }
       });
       bar.appendChild(b);
     });

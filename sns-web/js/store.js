@@ -25,7 +25,7 @@ async function pullSaved() {
       items = out;
       tracked = Array.isArray(meta.tracked) ? meta.tracked : [];
       settings = meta.settings || {};
-      autoCheck = meta.autoCheck || autoCheck;
+      autoCheck = { enabled: true, hours: 1 }; // 1시간마다 고정
       renderAll();
     } else { lastDataSig = ""; }
     saveNote = ""; updateConnText();
@@ -115,7 +115,7 @@ async function refresh() {
     importedTracked = true;
     call("set", { tracked: savedMeta.tracked }).then(() => { lastDataSig = ""; }).catch(() => {});
   }
-  autoCheck = d.autoCheck || { enabled: false, hours: 3 };
+  autoCheck = { enabled: true, hours: 1 };
   winDays = [7, 14, 30, 60].includes(d.windowDays) ? d.windowDays : 7;
   periodDays = winDays;
   checkStatus = d.status || {};
@@ -149,7 +149,7 @@ async function refresh() {
   for (const it of items) if (it.collectedAt > mx) mx = it.collectedAt;
   const dataSig = items.length + ":" + mx + ":" + JSON.stringify([tracked, settings, autoCheck, winDays]);
   const statusSig = JSON.stringify(checkStatus);
-  const loginSig = JSON.stringify(loginState);
+  const loginSig = JSON.stringify([loginState, settings]);
   // 확인(업데이트)이 진행되는 동안에는 글 목록을 다시 그리지 않고(상태 문구만 갱신), 끝난 뒤에 한 번만 새로 그립니다.
   const updating = !!(checkStatus && checkStatus.running) && firstDrawn;
   if (dataSig !== lastDataSig && !updating) { lastDataSig = dataSig; lastStatusSig = statusSig; firstDrawn = true; keepView(renderAll); }

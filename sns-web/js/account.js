@@ -1,5 +1,30 @@
 /* ---------- 계정(PHP 서버) : 로그인하면 저장된 연결 코드를 불러와 확장에 자동 설정 ---------- */
-let sess = "", pairBusy = false;
+let sess = "", pairBusy = false, avWho = "";
+// 프로필 이미지: 이 브라우저에 저장합니다(정사각형 128px로 줄여서).
+function loadAvatar() {
+  let d = ""; try { d = localStorage.getItem("snsAvatar") || ""; } catch (e) {}
+  const img = $("avImg");
+  if (d) { img.src = d; img.hidden = false; $("avLetter").hidden = true; } else { img.removeAttribute("src"); img.hidden = true; $("avLetter").hidden = false; }
+  $("avClear").hidden = !d;
+  const pi = $("avPrevImg");
+  if (d) { pi.src = d; pi.hidden = false; $("avPrevLetter").hidden = true; } else { pi.removeAttribute("src"); pi.hidden = true; $("avPrevLetter").hidden = false; }
+  $("avPrevLetter").textContent = (avWho || "?").slice(0, 1).toUpperCase();
+}
+function setAvatarWho(uid) { avWho = uid; $("avLetter").textContent = (uid || "?").slice(0, 1).toUpperCase(); $("menuWho").textContent = uid; $("connAcct").title = uid; loadAvatar(); }
+function pickAvatar(file) {
+  if (!file || !/^image\//.test(file.type)) return;
+  const url = URL.createObjectURL(file), im = new Image();
+  im.onload = () => {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const x = c.getContext("2d"), m = Math.min(im.naturalWidth, im.naturalHeight);
+    x.drawImage(im, (im.naturalWidth - m) / 2, (im.naturalHeight - m) / 2, m, m, 0, 0, 128, 128); // 가운데를 정사각형으로 잘라 꽉 채웁니다
+    URL.revokeObjectURL(url);
+    try { localStorage.setItem("snsAvatar", c.toDataURL("image/jpeg", 0.9)); } catch (e) {}
+    loadAvatar();
+  };
+  im.onerror = () => URL.revokeObjectURL(url);
+  im.src = url;
+}
 try { sess = localStorage.getItem("snsSess") || ""; } catch (e) {}
 async function api(action, body) {
   const r = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, body || {})) });
@@ -15,7 +40,7 @@ async function pairFlow(uid, tok) {
   pairBusy = true;
   try {
     $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = uid + " 로그인됨";
-    $("connOut").hidden = false; $("connAcct").hidden = false; $("connOut").textContent = uid + " 로그아웃";
+    $("connAcct").hidden = false; setAvatarWho(uid); $("connOut").textContent = "로그아웃";
     acctSay("확장에 연결하는 중…");
     token = tok;
     let st;
@@ -56,7 +81,7 @@ async function initAccount() {
     // 저장된 연결 코드도 지워야 새로고침 후 자동으로 다시 연결되지 않습니다.
     try { localStorage.removeItem("snsToken"); } catch (e) {}
     token = "";
-    setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; $("connOut").hidden = true; $("connAcct").hidden = true; acctSay("");
+    setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; $("acctMenu").hidden = true; $("connAcct").hidden = true; acctSay("");
     location.reload();
   };
   $("acctOut").addEventListener("click", doLogout);
@@ -65,10 +90,17 @@ async function initAccount() {
   const say = (id, t, err) => { const m = $(id); m.textContent = t || ""; m.hidden = !t; m.className = err ? "error" : "hint"; };
   const openAcct = () => { $("acctModal").hidden = false; say("pwMsg", ""); say("delMsg", ""); };
   const closeAcct = () => { $("acctModal").hidden = true; };
-  $("connAcct").addEventListener("click", openAcct);
+  const setMenu = (on) => { $("acctMenu").hidden = !on; $("connAcct").setAttribute("aria-expanded", String(on)); };
+  $("connAcct").addEventListener("click", (e) => { e.stopPropagation(); setMenu($("acctMenu").hidden); });
+  $("avPick").addEventListener("click", () => $("avFile").click());
+  $("avFile").addEventListener("change", () => { pickAvatar($("avFile").files[0]); $("avFile").value = ""; });
+  $("avClear").addEventListener("click", () => { try { localStorage.removeItem("snsAvatar"); } catch (e) {} loadAvatar(); });
+  $("menuSettings").addEventListener("click", () => { setMenu(false); openAcct(); });
+  $("connOut").addEventListener("click", () => setMenu(false));
+  document.addEventListener("click", (e) => { if (!e.target.closest(".acctwrap")) setMenu(false); });
   $("amX").addEventListener("click", closeAcct);
   $("acctModal").addEventListener("click", (e) => { if (e.target === $("acctModal")) closeAcct(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAcct(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeAcct(); setMenu(false); } });
   $("pwForm").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     if ($("pwNew").value !== $("pwNew2").value) { say("pwMsg", "새 비밀번호 두 칸이 서로 다릅니다.", true); return; }

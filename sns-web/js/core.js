@@ -1,4 +1,10 @@
-const LABELS = { all: "전체", "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타그램", people: "사람별" };
+const LABELS = { people: "사람별", youtube: "유튜브", x: "X", instagram: "인스타그램" };
+const SRC_LABELS = { "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타그램" };
+let searchPlats = ["youtube", "x", "instagram"]; // 통합 검색에서 찾을 매체
+try { const v = JSON.parse(localStorage.getItem("snsSearchPlats") || "null"); if (Array.isArray(v)) { const f = v.filter((p) => ["youtube", "x", "instagram"].includes(p)); if (f.length) searchPlats = f; } } catch (e) {}
+let ytMode = "both"; // 유튜브 탭: video(영상만) / both(둘 다) / post(게시물만)
+try { const m = localStorage.getItem("snsYtMode"); if (m === "video" || m === "post") ytMode = m; } catch (e) {}
+const tabOf = (s) => (String(s).startsWith("youtube") ? "youtube" : s);
 const PLATFORM = { youtube: "유튜브", x: "X", instagram: "인스타그램" };
 const RESERVED = new Set(["home", "explore", "i", "search", "p", "reel", "reels", "accounts", "settings", "messages"]);
 const MAX_TRACKED = 30;
@@ -19,9 +25,9 @@ function markSeen(it) {
 }
 const $ = (id) => document.getElementById(id);
 
-let winDays = 7, items = [], settings = {}, tracked = [], autoCheck = { enabled: false, hours: 3 }, checkStatus = {};
+let winDays = 7, items = [], settings = {}, tracked = [], autoCheck = { enabled: true, hours: 1 }, checkStatus = {};
 let selIds = []; // 계정 관리에서 고른 계정(누른 순서)
-let personFocus = "", personPlat = "", groupFocus = "", activeTab = "all", token = "", connected = false, polling = null;
+let personFocus = "", personPlat = "", groupFocus = "", activeTab = "people", token = "", connected = false, polling = null;
 
 function el(tag, props = {}, children = []) {
   const n = document.createElement(tag);
