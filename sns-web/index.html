@@ -12,10 +12,6 @@
 <header>
   <h1>SNS 모아보기</h1>
   <input id="q" type="search" placeholder="제목·작성자 검색" aria-label="검색">
-  <button id="checkNow" class="primary" type="button" hidden>가져오기</button>
-  <select id="period" aria-label="기간(가져오기·보기 공통)" title="가져올 기간과 보여줄 기간이 같이 바뀝니다">
-    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option>
-  </select>
   <select id="view" aria-label="전체 보기 방식">
     <option value="source" selected>출처별로 보기</option><option value="group">묶음·계정별로 보기</option>
   </select>
@@ -26,7 +22,13 @@
 
 <div class="conn"><span id="dot" class="dot"></span><span id="connText">확장 프로그램과 연결되지 않았습니다.</span><button id="connAcct" type="button" hidden>계정</button><button id="connOut" type="button" hidden>로그아웃</button></div>
 
-<div id="loginBar" class="loginbar" hidden></div>
+<div class="toolbar">
+  <div id="loginBar" class="loginbar" hidden></div>
+  <button id="checkNow" class="primary" type="button" hidden>가져오기</button>
+  <select id="period" aria-label="기간(가져오기·보기 공통)" title="가져올 기간과 보여줄 기간이 같이 바뀝니다">
+    <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option>
+  </select>
+</div>
 
 <div id="loginModal" class="modal-back" role="dialog" aria-modal="true" aria-labelledby="lmTitle" hidden>
   <div class="modal">

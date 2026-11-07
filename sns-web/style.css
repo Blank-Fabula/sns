@@ -150,3 +150,8 @@ html:has(#viewer:not([hidden])), body:has(#viewer:not([hidden])) { overflow: hid
 .selchip{display:inline-flex;align-items:center;gap:4px}
 .selx{border:0;background:none;color:inherit;cursor:pointer;padding:0 2px;font:inherit;line-height:1;opacity:.85}
 .selx:hover{opacity:1}
+
+header .loginbar{padding:0}
+
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 0 8px}
+.toolbar .loginbar{padding:0}
