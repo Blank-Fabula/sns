@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<script>try{var t=localStorage.getItem("snsTheme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var d=new URLSearchParams(location.search).get("design")||localStorage.getItem("snsDesign")||"bento";if(d==="bento")document.documentElement.setAttribute("data-design","bento")}catch(e){}</script>
+<script>document.documentElement.setAttribute("data-design","bento");try{if(localStorage.getItem("snsTheme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
 <title>SNS 모아보기</title>
@@ -40,7 +40,6 @@
     <div id="acctMenu" class="acctmenu" role="menu" hidden>
       <div id="menuWho" class="menuwho"></div>
       <button id="themeBtn" type="button" role="menuitem">☾ 다크 모드</button>
-      <button id="designBtn" type="button" role="menuitem">디자인: 클래식</button>
       <button id="menuSettings" type="button" role="menuitem">계정 관리</button>
       <button id="clear" class="danger" type="button" role="menuitem">수집한 글 모두 삭제</button>
       <button id="connOut" type="button" role="menuitem">로그아웃</button>

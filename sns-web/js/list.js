@@ -6,7 +6,7 @@ function relative(ms) {
   return "방금";
 }
 // 기간은 계정마다 따로 정합니다(계정에 days가 있으면 그 기간으로 가져오고 보여줍니다). 없는 계정은 확장의 기본 기간(periodDays)을 따릅니다.
-let periodDays = 7;
+let periodDays = 30;
 const publishedMs = (it) => { const t = Date.parse(it.publishedAt || ""); return Number.isNaN(t) ? it.collectedAt : t; };
 // 계정별 기간이 있으면 그 계정의 글은 그 기간으로, 없으면 맨 위 기간으로 거릅니다.
 const inPeriod = (it) => {

@@ -116,7 +116,7 @@ async function refresh() {
     call("set", { tracked: savedMeta.tracked }).then(() => { lastDataSig = ""; }).catch(() => {});
   }
   autoCheck = { enabled: true, hours: 1 };
-  winDays = [7, 14, 30, 60].includes(d.windowDays) ? d.windowDays : 7;
+  winDays = [7, 14, 30, 60].includes(d.windowDays) ? d.windowDays : 30;
   periodDays = winDays;
   checkStatus = d.status || {};
   loginState = d.loginState || {};

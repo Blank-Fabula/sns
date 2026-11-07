@@ -197,23 +197,10 @@ $("brand").addEventListener("click", () => $("navHome").click());
 $("navFav").addEventListener("click", () => { page = "fav"; activeTab = "people"; personFocus = ""; personPlat = ""; applyPage(); renderList(); window.scrollTo(0, 0); });
 $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); window.scrollTo(0, 0); });
 
-/* ---------- 디자인 전환: 클래식 ↔ 벤토(계정 메뉴) ---------- */
-(function () {
-  const root = document.documentElement, btn = $("designBtn");
-  const draw = () => { const b = root.getAttribute("data-design") === "bento"; btn.textContent = "디자인: " + (b ? "벤토 → 클래식으로" : "클래식 → 벤토로"); };
-  btn.addEventListener("click", () => {
-    const b = root.getAttribute("data-design") === "bento";
-    if (b) root.removeAttribute("data-design"); else root.setAttribute("data-design", "bento");
-    try { localStorage.setItem("snsDesign", b ? "classic" : "bento"); } catch (e) {}
-    draw();
-  });
-  draw();
-})();
-
 /* ---------- 벤토 디자인: 계정 메뉴 항목을 '설정' 화면(별도 탭)으로 ---------- */
 (function () {
   const root = document.documentElement;
-  const ids = ["menuWho", "themeBtn", "designBtn", "menuSettings", "clear", "connOut"];
+  const ids = ["menuWho", "themeBtn", "menuSettings", "clear", "connOut"];
   const place = () => {
     const bento = root.getAttribute("data-design") === "bento";
     const dest = $(bento ? "setBody" : "acctMenu");
@@ -227,6 +214,5 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
     e.stopImmediatePropagation(); e.preventDefault();
     page = "settings"; applyPage(); window.scrollTo(0, 0);
   }, true);
-  $("designBtn").addEventListener("click", () => setTimeout(() => { place(); renderList(); }, 0));
   place();
 })();
