@@ -5,8 +5,8 @@ function relative(ms) {
   for (const [u, s] of [["day", 86400], ["hour", 3600], ["minute", 60]]) if (Math.abs(diff) >= s) return rtf.format(Math.round(diff / s), u);
   return "방금";
 }
+// 기간은 하나로 합쳤습니다: 확장이 가져올 기간(winDays)과 화면에 보여줄 기간(periodDays)이 같은 값입니다.
 let periodDays = 7;
-try { const s = localStorage.getItem("snsPeriod"); if (s !== null && !Number.isNaN(Number(s))) periodDays = Number(s); } catch (e) {}
 $("period").value = String(periodDays);
 const publishedMs = (it) => { const t = Date.parse(it.publishedAt || ""); return Number.isNaN(t) ? it.collectedAt : t; };
 const inPeriod = (it) => !periodDays || publishedMs(it) >= Date.now() - periodDays * 86400000;
@@ -382,8 +382,9 @@ function renderTracked() {
     tracked.filter((t) => t.kind !== "feed").forEach((t) => sel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
     if (keep) sel.value = keep;
   }
-  const wd = $("winDays");
-  if (document.activeElement !== wd) wd.value = String(winDays);
+  const pd = $("period");
+  periodDays = winDays;
+  if (document.activeElement !== pd) pd.value = String(winDays);
   const ae = $("autoEnabled"), ah = $("autoHours");
   if (document.activeElement !== ae) ae.checked = !!autoCheck.enabled;
   if (document.activeElement !== ah) ah.value = String(autoCheck.hours || 3);

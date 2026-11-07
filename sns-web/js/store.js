@@ -21,6 +21,7 @@ async function pullSaved() {
     savedItems = out; savedMeta = meta; savedAt = Number(meta.savedAt) || 0;
     baseTrackedSig = JSON.stringify(meta.tracked || []);
     if (!connected) {
+      if ([7, 14, 30, 60].includes(meta.windowDays)) { winDays = periodDays = meta.windowDays; $("period").value = String(winDays); }
       items = out;
       tracked = Array.isArray(meta.tracked) ? meta.tracked : [];
       settings = meta.settings || {};
@@ -110,6 +111,7 @@ async function refresh() {
   }
   autoCheck = d.autoCheck || { enabled: false, hours: 3 };
   winDays = [7, 14, 30, 60].includes(d.windowDays) ? d.windowDays : 7;
+  periodDays = winDays;
   checkStatus = d.status || {};
   loginState = d.loginState || {};
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }

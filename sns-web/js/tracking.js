@@ -86,7 +86,11 @@ $("groupForm").addEventListener("submit", async (ev) => {
   renderTracked(); renderList();
   try { await call("set", { tracked }); $("gName").value = ""; } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
 });
-$("period").addEventListener("change", () => { periodDays = Number($("period").value); try { localStorage.setItem("snsPeriod", String(periodDays)); } catch (e) {} renderList(); });
+$("period").addEventListener("change", () => {
+  winDays = periodDays = Number($("period").value);
+  renderList();
+  if (connected) call("set", { windowDays: winDays }).catch(showErr);
+});
 document.querySelectorAll("#platPanel input[data-key]").forEach((b) => b.addEventListener("change", async () => { settings[b.dataset.key] = b.checked; await call("set", { settings }).catch(showErr); }));
 // 주소나 @계정이 아니면(예: 그냥 이름) 추가하지 않고 이름으로 검색합니다.
 const isDirect = (v) => /^https?:\/\//i.test(v) || v.startsWith("@") || SITE_START.test(v);
@@ -161,7 +165,6 @@ $("searchBtn").addEventListener("click", async () => {
   finally { $("searchBtn").disabled = false; }
 });
 
-$("winDays").addEventListener("change", () => { winDays = Number($("winDays").value); call("set", { windowDays: winDays }).catch(showErr); });
 $("autoEnabled").addEventListener("change", () => { autoCheck = { ...autoCheck, enabled: $("autoEnabled").checked }; call("set", { autoCheck }).catch(showErr); });
 $("autoHours").addEventListener("change", () => { autoCheck = { ...autoCheck, hours: Number($("autoHours").value) }; call("set", { autoCheck }).catch(showErr); });
 $("checkNow").addEventListener("click", () => { armLoginPrompt(); $("checkNow").disabled = true; call("checkNow", { only: "" }).catch(showErr); });
