@@ -550,7 +550,7 @@ async function bridgeOp(msg) {
     const post = stats && stats.post;
     if (!post) throw new Error("게시물 내용을 읽지 못했습니다.");
     // 웹 화면은 외부 이미지를 막을 수 있어, 허용된 이미지 서버의 그림은 데이터로 바꿔 전달합니다.
-    const inline = async (url) => (url ? (await inlineAvatar(url, 600000)) || url : "");
+    const inline = async (url) => (url ? (await inlineAvatar(url, 1500000)) || url : "");
     post.avatar = await inline(post.avatar);
     post.images = await Promise.all(post.images.map(inline));
     return post;

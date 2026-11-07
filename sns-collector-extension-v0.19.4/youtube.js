@@ -12,6 +12,8 @@
   ].join(",");
 
   const TIME_TEXT = /(전|ago)$/;
+  // 유튜브 이미지 주소 끝의 크기·자르기(-c-fcrop…) 표시를 떼고 원본 비율의 지정 크기로 바꿉니다(안 그러면 정사각형으로 잘린 그림이 옵니다).
+  const bigImg = (u, n) => String(u || "").replace(/=(s|w)\d+[^/?#]*$/, "=s" + (n || 1200));
 
   function scanVideos(out) {
     document
@@ -186,7 +188,56 @@
   }
 
   // 게시물 한 개의 내용을 읽어 돌려줍니다(저장하지 않고, 사용자가 카드를 눌렀을 때만 화면에 보여주는 용도).
+  // 게시물 페이지의 데이터(ytInitialData)에서 본문 전체와 모든 사진을 직접 읽습니다. 화면을 그리지 않는 탭에서도 되고,
+  // '자세히 알아보기'를 누르지 않아도 전체 본문이 들어 있습니다. 못 읽으면 null → 화면에서 읽는 방식으로 넘어갑니다.
+  async function postFromData() {
+    try {
+      const html = await (await fetch(location.href, { credentials: "include" })).text();
+      const mm = /var ytInitialData\s*=\s*(\{.*?\});<\/script>/s.exec(html);
+      if (!mm) return null;
+      let p = null;
+      const walk = (o, d) => {
+        if (p || !o || typeof o !== "object" || d > 60) return;
+        if (o.backstagePostRenderer && o.backstagePostRenderer.postId) { p = o.backstagePostRenderer; return; }
+        for (const k in o) walk(o[k], d + 1);
+      };
+      walk(JSON.parse(mm[1]), 0);
+      if (!p) return null;
+      const rt = (t) => (t && (t.simpleText || (t.runs || []).map((r) => r.text).join(""))) || "";
+      const images = [];
+      const att = p.backstageAttachment || {};
+      const addImg = (r) => {
+        const th = (r && r.image && r.image.thumbnails) || [];
+        const u = (th[th.length - 1] || {}).url;
+        if (/^https:\/\//.test(u || "")) { const b = bigImg(u, 1000); if (!images.includes(b)) images.push(b); }
+      };
+      if (att.postMultiImageRenderer) (att.postMultiImageRenderer.images || []).forEach((i) => addImg(i.backstageImageRenderer));
+      if (att.backstageImageRenderer) addImg(att.backstageImageRenderer);
+      let video = null;
+      const vm = JSON.stringify(att.videoRenderer || {}).match(/"videoId":"([\w-]{11})"/);
+      if (vm) video = { id: vm[1], title: clip(rt((att.videoRenderer || {}).title), 120) };
+      const av = (((p.authorThumbnail || {}).thumbnails) || []).slice(-1)[0];
+      return {
+        author: clip(rt(p.authorText), 80),
+        time: clip(rt(p.publishedTimeText), 40),
+        text: rt(p.contentText).replace(/\r/g, "").trim(),
+        likes: clip(rt(p.voteCount), 20),
+        avatar: (av && av.url) || "",
+        images: images.slice(0, 10),
+        video,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function post() {
+    const d = await postFromData();
+    if (d && (d.text || d.images.length || d.video)) return d;
+    return postFromDom();
+  }
+
+  async function postFromDom() {
     const sel = "ytd-backstage-post-renderer, ytd-post-renderer";
     for (let i = 0; i < 24; i++) {
       if (document.querySelector(sel)) break;
@@ -294,7 +345,7 @@
         if (att) {
           const walkImg = (o, d) => {
             if (thumb || !o || typeof o !== "object" || d > 12) return;
-            if (Array.isArray(o.thumbnails) && o.thumbnails.length) { const u = (o.thumbnails[o.thumbnails.length - 1] || {}).url; if (/^https:\/\//.test(u || "")) { thumb = u; return; } }
+            if (Array.isArray(o.thumbnails) && o.thumbnails.length) { const u = (o.thumbnails[o.thumbnails.length - 1] || {}).url; if (/^https:\/\//.test(u || "")) { thumb = bigImg(u, 640); return; } }
             for (const k in o) walkImg(o[k], d + 1);
           };
           walkImg(att, 0);
