@@ -14,6 +14,7 @@ function markSeen(it) {
   if (!it || !it.id || seen.has(it.id)) return;
   seen.add(it.id);
   saveSeen();
+  if (typeof queueSeen === "function") queueSeen(it.id); // 로그인 상태면 다른 기기에도 반영
   document.querySelectorAll(".card").forEach((c) => { if (c._item && c._item.id === it.id) c.classList.add("seen"); });
 }
 const $ = (id) => document.getElementById(id);

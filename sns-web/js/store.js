@@ -1,7 +1,7 @@
 /* ---------- 내 계정에 저장(서버) : 다른 기기에서도 로그인하면 마지막 저장본이 보이게 합니다 ---------- */
 // 확장이 연결된 PC는 글·추적 계정을 서버(/api/sync)에 올리고, 확장이 없는 기기는 그 저장본을 불러와 보여 줍니다.
 let savedAt = 0, saveNote = "", lastSig = "", syncTimer = 0, syncing = false, lastPushAt = 0, importedTracked = false;
-let savedItems = [], savedMeta = null; // 서버에서 불러온 저장본(확장 글과 합쳐서 보여줍니다)
+let savedItems = [], savedMeta = null, baseTrackedSig = ""; // baseTrackedSig: 마지막으로 서버와 맞춘 추적 계정 목록 // 서버에서 불러온 저장본(확장 글과 합쳐서 보여줍니다)
 let chunkSigs = [];
 async function sapi(action, extra) {
   const r = await fetch("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, extra || {})) });
@@ -12,12 +12,14 @@ async function sapi(action, extra) {
 }
 async function pullSaved() {
   if (!sess) return;
+  pullSeen();
   try {
     const { meta } = await sapi("meta");
     if (!meta) { saveNote = "확장으로 가져오면 내 계정에 자동 저장됩니다"; updateConnText(); return; }
     const out = [];
     for (let i = 0; i < (meta.chunks || 0); i++) out.push(...((await sapi("chunk", { i })).items || []));
     savedItems = out; savedMeta = meta; savedAt = Number(meta.savedAt) || 0;
+    baseTrackedSig = JSON.stringify(meta.tracked || []);
     if (!connected) {
       items = out;
       tracked = Array.isArray(meta.tracked) ? meta.tracked : [];
@@ -55,8 +57,27 @@ async function doSync(s) {
   if (syncing) { syncTimer = setTimeout(() => doSync(s), 5000); return; }
   syncing = true;
   try {
+    // 다른 기기가 그 사이에 저장했다면 그 내용을 합친 뒤에 올립니다(덮어써서 잃지 않게).
+    let src = items, pushTracked = tracked;
+    try {
+      const m = (await sapi("meta")).meta;
+      if (m && (Number(m.savedAt) || 0) > savedAt) {
+        const fetched = [];
+        for (let i = 0; i < (m.chunks || 0); i++) fetched.push(...((await sapi("chunk", { i })).items || []));
+        const known = new Set(items.map((it) => it.id)), tids = new Set(tracked.map((t) => t.id));
+        const extra = fetched.filter((it) => !known.has(it.id) && (!tracked.length || !it.via || tids.has(it.via)));
+        src = items.concat(extra);
+        savedItems = fetched; savedMeta = m;
+        // 추적 계정은 이 기기에서 바꾼 게 없으면 서버(다른 기기) 목록을 따라가고, 바꿨다면 이 기기 것이 우선입니다.
+        if (JSON.stringify(tracked) === baseTrackedSig && Array.isArray(m.tracked)) {
+          pushTracked = m.tracked;
+          if (JSON.stringify(m.tracked) !== JSON.stringify(tracked)) call("set", { tracked: m.tracked }).catch(() => {});
+        }
+        lastDataSig = ""; // 합쳐진 글이 다음 갱신 때 화면에 반영되게 함
+      }
+    } catch (e) { /* 합치지 못하면 이 기기 것만 올립니다 */ }
     const cut = Date.now() - 60 * 86400000;
-    const keep = items.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 2000);
+    const keep = src.filter((it) => publishedMs(it) >= cut).sort((a, b) => publishedMs(b) - publishedMs(a)).slice(0, 2000);
     const size = 100, n = Math.ceil(keep.length / size);
     for (let i = 0; i < n; i++) {
       const part = keep.slice(i * size, (i + 1) * size);
@@ -66,10 +87,11 @@ async function doSync(s) {
       chunkSigs[i] = cs;
     }
     chunkSigs.length = n;
-    const r = await sapi("putMeta", { chunks: n, count: keep.length, tracked, settings, autoCheck, windowDays: winDays });
+    const r = await sapi("putMeta", { chunks: n, count: keep.length, tracked: pushTracked, settings, autoCheck, windowDays: winDays });
     lastSig = s; lastPushAt = Date.now(); savedAt = r.savedAt || Date.now(); saveNote = "내 계정에 저장됨";
     savedItems = keep; // 저장본 = 방금 올린 목록
-    savedMeta = { tracked, settings, autoCheck, windowDays: winDays };
+    savedMeta = { tracked: pushTracked, settings, autoCheck, windowDays: winDays };
+    baseTrackedSig = JSON.stringify(pushTracked);
   } catch (e) { saveNote = "저장 실패(" + ((e && e.message) || "오류") + ")"; lastPushAt = Date.now(); }
   finally { syncing = false; updateConnText(); }
 }
@@ -98,11 +120,24 @@ async function refresh() {
   const dataSig = items.length + ":" + mx + ":" + JSON.stringify([tracked, settings, autoCheck, winDays]);
   const statusSig = JSON.stringify(checkStatus);
   const loginSig = JSON.stringify(loginState);
-  if (dataSig !== lastDataSig) { lastDataSig = dataSig; lastStatusSig = statusSig; renderAll(); }
+  // 확인(업데이트)이 진행되는 동안에는 글 목록을 다시 그리지 않고(상태 문구만 갱신), 끝난 뒤에 한 번만 새로 그립니다.
+  const updating = !!(checkStatus && checkStatus.running) && firstDrawn;
+  if (dataSig !== lastDataSig && !updating) { lastDataSig = dataSig; lastStatusSig = statusSig; firstDrawn = true; keepView(renderAll); }
   else if (statusSig !== lastStatusSig) { lastStatusSig = statusSig; renderTracked(); }
   if (loginSig !== lastLoginSig) { lastLoginSig = loginSig; renderLogin(); }
-  maybeSync();
+  if (!updating) maybeSync(); // 저장도 업데이트가 끝난 뒤에
+  autoTick();
 }
+let firstDrawn = false, lastAutoTry = 0;
+// 자동 확인: 이 웹 화면을 보고 있을 때만 확장에 "주기가 지났으면 확인해 달라"고 요청합니다(주기 판단은 확장이 합니다).
+function autoTick(force) {
+  if (document.visibilityState !== "visible" || !connected || !autoCheck.enabled) return;
+  if (checkStatus && checkStatus.running) return;
+  if (!force && Date.now() - lastAutoTry < 30000) return;
+  lastAutoTry = Date.now();
+  call("checkAuto").catch(() => {});
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoTick(true); });
 
 async function connect(tok, fromForm) {
   token = tok;
@@ -120,3 +155,97 @@ async function connect(tok, fromForm) {
   }
 }
 
+
+/* 새로 그린 뒤에도 보던 자리를 유지합니다: 페이지 세로 위치, 각 줄의 가로 위치(보던 첫 카드 기준), 세로 격자의 보던 카드. */
+function viewKey(sec, seen) {
+  const h = sec.querySelector(".sec-head h3, .sec-head h4");
+  const base = h ? h.textContent.trim() : "";
+  seen[base] = (seen[base] || 0) + 1;
+  return base + "#" + seen[base];
+}
+function firstVisibleCard(box, horizontal) {
+  const rb = box.getBoundingClientRect();
+  for (const c of box.children) {
+    if (!c._item) continue;
+    const r = c.getBoundingClientRect();
+    if (horizontal ? r.right > rb.left + 1 : r.bottom > 0) return { id: c._item.id, off: horizontal ? r.left - rb.left : r.top };
+  }
+  return null;
+}
+function keepView(draw) {
+  const grid = document.getElementById("grid");
+  const y = window.scrollY, rows = {}, cnt = {};
+  let vert = null, secAnchor = null;
+  try {
+    grid.querySelectorAll(".sec").forEach((sec) => {
+      const key = viewKey(sec, cnt);
+      // 세로 기준: 지금 화면에 걸쳐 보이는 첫 줄(계정·묶음). 위에 새 줄이 끼어들어도 이 줄이 같은 자리에 오게 합니다.
+      if (!secAnchor) { const r = sec.getBoundingClientRect(); if (r.bottom > 0) secAnchor = { key, top: r.top }; }
+      const row = sec.querySelector(".row-cards");
+      if (row) rows[key] = { left: row.scrollLeft, a: firstVisibleCard(row, true) };
+    });
+    const cards = grid.matches(".cards") ? grid : grid.querySelector(".cards");
+    if (cards) vert = firstVisibleCard(cards, false);
+  } catch (e) { /* 위치를 못 읽으면 그냥 다시 그립니다 */ }
+  draw();
+  try {
+    const cnt2 = {};
+    grid.querySelectorAll(".sec").forEach((sec) => {
+      const row = sec.querySelector(".row-cards"), st = row && rows[viewKey(sec, cnt2)];
+      if (!row || !st) return;
+      const c = st.a && Array.from(row.children).find((n) => n._item && n._item.id === st.a.id);
+      row.scrollLeft = c ? Math.max(0, c.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft - st.a.off) : st.left;
+    });
+    window.scrollTo(0, y);
+    if (secAnchor) {
+      const cnt3 = {};
+      for (const sec of grid.querySelectorAll(".sec")) {
+        if (viewKey(sec, cnt3) === secAnchor.key) { window.scrollBy(0, sec.getBoundingClientRect().top - secAnchor.top); break; }
+      }
+    }
+    if (vert) {
+      const cards = grid.matches(".cards") ? grid : grid.querySelector(".cards");
+      const c = cards && Array.from(cards.children).find((n) => n._item && n._item.id === vert.id);
+      if (c) window.scrollBy(0, c.getBoundingClientRect().top - vert.off);
+    }
+  } catch (e) { /* 무시 */ }
+}
+
+/* ---------- 본 글 기록(흐리게 보이는 표시)을 계정에 동기화: 합집합으로만 합칩니다 ---------- */
+const seenQueue = new Set();
+let seenTimer = 0, lastSeenPull = 0;
+function queueSeen(id) {
+  if (!sess) return;
+  seenQueue.add(id);
+  clearTimeout(seenTimer);
+  seenTimer = setTimeout(flushSeen, 8000);
+}
+async function flushSeen() {
+  if (!sess || !seenQueue.size) return;
+  const add = Array.from(seenQueue).slice(0, 500);
+  try {
+    await sapi("putSeen", { add });
+    add.forEach((id) => seenQueue.delete(id));
+  } catch (e) { /* 다음 기회에 다시 보냅니다 */ }
+  if (seenQueue.size) { clearTimeout(seenTimer); seenTimer = setTimeout(flushSeen, 8000); }
+}
+async function pullSeen() {
+  if (!sess) return;
+  lastSeenPull = Date.now();
+  try {
+    const ids = (await sapi("getSeen")).ids || [];
+    const server = new Set(ids);
+    let added = false;
+    for (const id of ids) if (!seen.has(id)) { seen.add(id); added = true; }
+    if (added) {
+      saveSeen();
+      document.querySelectorAll("#grid .card").forEach((c) => { if (c._item && seen.has(c._item.id)) c.classList.add("seen"); });
+    }
+    // 이 기기에만 있던 기록은 서버로 올립니다.
+    Array.from(seen).slice(-2000).forEach((id) => { if (!server.has(id)) seenQueue.add(id); });
+    if (seenQueue.size) { clearTimeout(seenTimer); seenTimer = setTimeout(flushSeen, 3000); }
+  } catch (e) { /* 무시 */ }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && sess && Date.now() - lastSeenPull > 60000) pullSeen();
+});

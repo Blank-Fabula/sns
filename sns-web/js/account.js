@@ -15,7 +15,7 @@ async function pairFlow(uid, tok) {
   pairBusy = true;
   try {
     $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = uid + " 로그인됨";
-    $("connOut").hidden = false; $("connOut").textContent = uid + " 로그아웃";
+    $("connOut").hidden = false; $("connAcct").hidden = false; $("connOut").textContent = uid + " 로그아웃";
     acctSay("확장에 연결하는 중…");
     token = tok;
     let st;
@@ -56,11 +56,45 @@ async function initAccount() {
     // 저장된 연결 코드도 지워야 새로고침 후 자동으로 다시 연결되지 않습니다.
     try { localStorage.removeItem("snsToken"); } catch (e) {}
     token = "";
-    setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; $("connOut").hidden = true; acctSay("");
+    setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; $("connOut").hidden = true; $("connAcct").hidden = true; acctSay("");
     location.reload();
   };
   $("acctOut").addEventListener("click", doLogout);
   $("connOut").addEventListener("click", doLogout);
+  // 계정 관리(비밀번호 변경 · 계정 삭제)
+  const say = (id, t, err) => { const m = $(id); m.textContent = t || ""; m.hidden = !t; m.className = err ? "error" : "hint"; };
+  const openAcct = () => { $("acctModal").hidden = false; say("pwMsg", ""); say("delMsg", ""); };
+  const closeAcct = () => { $("acctModal").hidden = true; };
+  $("connAcct").addEventListener("click", openAcct);
+  $("amX").addEventListener("click", closeAcct);
+  $("acctModal").addEventListener("click", (e) => { if (e.target === $("acctModal")) closeAcct(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAcct(); });
+  $("pwForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if ($("pwNew").value !== $("pwNew2").value) { say("pwMsg", "새 비밀번호 두 칸이 서로 다릅니다.", true); return; }
+    try {
+      const j = await api("changePassword", { password: $("pwOld").value, newPassword: $("pwNew").value });
+      setSess(j.session);
+      $("pwOld").value = $("pwNew").value = $("pwNew2").value = "";
+      say("pwMsg", "비밀번호를 변경했습니다.");
+    } catch (e) { say("pwMsg", e.message, true); }
+  });
+  let delArmed = 0;
+  $("delBtn").addEventListener("click", async () => {
+    if (!$("delPw").value) { say("delMsg", "비밀번호를 입력하세요.", true); return; }
+    if (!delArmed) { // 두 번 눌러야 삭제합니다
+      $("delBtn").textContent = "정말 삭제하려면 한 번 더";
+      delArmed = setTimeout(() => { delArmed = 0; $("delBtn").textContent = "계정 삭제"; }, 5000);
+      return;
+    }
+    clearTimeout(delArmed); delArmed = 0; $("delBtn").textContent = "계정 삭제";
+    try {
+      await api("deleteAccount", { password: $("delPw").value });
+      try { await call("unpair"); } catch (e) { /* 확장이 없거나 구버전이면 확장 화면에서 직접 연결 해제 */ }
+      try { ["snsToken", "snsSess", "snsSeen"].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
+      location.reload();
+    } catch (e) { say("delMsg", e.message, true); }
+  });
   if (sess) {
     try { const j = await api("me"); pairFlow(j.id, j.token); }
     catch (e) { setSess(""); }

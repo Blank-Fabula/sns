@@ -1,4 +1,4 @@
-// 수집한 글의 "짧은 미리보기"(링크·제목·썸네일 주소)와 추적 계정을 로그인 계정별로 저장해서,
+// 수집한 글의 "짧은 미리보기"(링크·제목·썸네일 주소)·추적 계정·본 글 기록을 로그인 계정별로 저장해서,
 // 확장이 없는 다른 기기에서도 로그인만 하면 볼 수 있게 합니다. 저장소: Upstash Redis(auth.js와 같은 것).
 const crypto = require("crypto");
 
@@ -26,7 +26,13 @@ const https = (v, n) => { const s = str(v, n); return /^https:\/\//.test(s) ? s 
 
 async function userIdBySession(sess) {
   if (typeof sess !== "string" || sess.length < 20 || sess.length > 200) return null;
-  return (await redis(["GET", "sess:" + sha(sess)])) || null;
+  const v = await redis(["GET", "sess:" + sha(sess)]);
+  if (!v) return null;
+  const [email, vs] = String(v).split(":");
+  const raw = await redis(["GET", "user:" + email]); // 계정이 지워졌거나 비밀번호를 바꿔 세션 버전이 달라졌으면 무효
+  if (!raw) return null;
+  if ((Number(vs) || 0) !== (Number((JSON.parse(raw) || {}).sv) || 0)) return null;
+  return email;
 }
 
 function cleanItem(raw) {
@@ -84,6 +90,11 @@ module.exports = async (req, res) => {
       return send(200, { ok: true, items: raw ? JSON.parse(raw) : [] });
     }
 
+    if (act === "getSeen") {
+      const raw = await redis(["GET", k("seen")]);
+      return send(200, { ok: true, ids: raw ? JSON.parse(raw) : [] });
+    }
+
     // 쓰기: 계정당 시간당 호출 수 제한(저장소 한도 보호)
     const rl = "rlsync:" + sha(uid);
     const n = await redis(["INCR", rl]);
@@ -96,6 +107,17 @@ module.exports = async (req, res) => {
       const items = body.items.slice(0, CHUNK).map(cleanItem).filter(Boolean);
       await redis(["SET", k("c" + i), JSON.stringify(items), "EX", String(KEEP)]);
       return send(200, { ok: true, n: items.length });
+    }
+    if (act === "putSeen") {
+      // 본 글 기록은 합집합으로만 늘립니다(다른 기기의 기록을 지우지 않음). 최근 5000개만 유지.
+      const add = Array.isArray(body.add) ? body.add.slice(0, 500).map((x) => str(x, 120)).filter(Boolean) : [];
+      const raw = await redis(["GET", k("seen")]);
+      const cur = raw ? JSON.parse(raw) : [];
+      const have = new Set(cur);
+      for (const id of add) if (!have.has(id)) { cur.push(id); have.add(id); }
+      const out = cur.slice(-5000);
+      await redis(["SET", k("seen"), JSON.stringify(out), "EX", String(KEEP)]);
+      return send(200, { ok: true, n: out.length });
     }
     if (act === "putMeta") {
       const chunks = Math.max(0, Math.min(MAX_CHUNKS, Number(body.chunks) || 0));
