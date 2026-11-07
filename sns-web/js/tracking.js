@@ -223,3 +223,18 @@ $("clear").addEventListener("click", async () => {
   $("ptAddBtn").addEventListener("click", () => show(false));
   $("ptManageBtn").addEventListener("click", () => show(true));
 })();
+
+// 수집창을 닫아 수집이 종료됐을 때 뜨는 안내 모달
+(function () {
+  const close = () => { $("closedModal").hidden = true; };
+  $("cmX").addEventListener("click", close);
+  $("cmClose").addEventListener("click", close);
+  $("closedModal").addEventListener("click", (e) => { if (e.target === $("closedModal")) close(); });
+  $("cmRetry").addEventListener("click", () => { close(); armLoginPrompt(); call("checkNow", { only: "" }).catch(showErr); });
+})();
+
+// 수집이 일시정지됐을 때의 모달: 이어서 수집(수집창을 앞으로) / 닫기(수집 종료)
+(function () {
+  $("pmResume").addEventListener("click", () => { pauseDismissed = true; $("pausedModal").hidden = true; call("resumeCheck").catch(showErr); });
+  $("pmClose").addEventListener("click", () => { pauseDismissed = true; $("pausedModal").hidden = true; call("cancelCheck").catch(showErr); });
+})();

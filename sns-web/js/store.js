@@ -97,6 +97,7 @@ async function doSync(s) {
   finally { syncing = false; updateConnText(); }
 }
 
+let lastClosedShown = 0, pauseDismissed = false;
 let lastDataSig = "", lastStatusSig = "", lastLoginSig = "";
 async function refresh() {
   const d = await call("get");
@@ -114,6 +115,15 @@ async function refresh() {
   periodDays = winDays;
   checkStatus = d.status || {};
   loginState = d.loginState || {};
+  // 사용자가 수집창을 닫아 수집이 끝났다면: 한 번만 안내 모달을 띄웁니다.
+  if (checkStatus.closed && checkStatus.lastRun && checkStatus.lastRun !== lastClosedShown && !checkStatus.running) {
+    lastClosedShown = checkStatus.lastRun;
+    $("closedModal").hidden = false;
+    $("cmRetry").focus();
+  }
+  // 수집창이 가려져 수집이 일시정지됐다면 안내 모달을 띄웁니다(이어서 수집 / 닫기).
+  if (checkStatus.paused && checkStatus.running) { if (!pauseDismissed) $("pausedModal").hidden = false; }
+  else { pauseDismissed = false; $("pausedModal").hidden = true; }
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
   if (!loginAsked) { loginAsked = true; call("checkLogin").catch(() => {}); }
   // 바뀐 부분만 다시 그려서 화면이 깜빡이지 않게 합니다.

@@ -63,6 +63,25 @@
   </div>
 </div>
 
+<div id="pausedModal" class="modal-back" role="dialog" aria-modal="true" aria-labelledby="pmTitle" hidden>
+  <div class="modal">
+    <h2 id="pmTitle">수집을 일시정지했습니다</h2>
+    <p>웹화면에서 벗어나 수집을 일시정지했습니다.</p>
+    <p class="hint">'이어서 수집'을 누르면 수집창이 앞으로 나와 이어서 수집합니다. '닫기'는 수집을 종료하고 수집창을 닫습니다(그때까지 모은 글은 남습니다).</p>
+    <div class="foot"><button id="pmClose" type="button">닫기</button><button id="pmResume" class="primary" type="button">이어서 수집</button></div>
+  </div>
+</div>
+
+<div id="closedModal" class="modal-back" role="dialog" aria-modal="true" aria-labelledby="cmTitle" hidden>
+  <div class="modal">
+    <button id="cmX" class="x" type="button" aria-label="닫기">×</button>
+    <h2 id="cmTitle">수집을 종료했습니다</h2>
+    <p>수집창을 닫아 수집을 종료합니다. 재시도 해주십시오.</p>
+    <p class="hint">그때까지 모은 글은 남아 있습니다.</p>
+    <div class="foot"><button id="cmClose" type="button">닫기</button><button id="cmRetry" class="primary" type="button">재시도</button></div>
+  </div>
+</div>
+
 <div id="rmModal" class="modal-back" role="dialog" aria-modal="true" aria-labelledby="rmTitle" hidden>
   <div class="modal">
     <button id="rmX" class="x" type="button" aria-label="닫기">×</button>
