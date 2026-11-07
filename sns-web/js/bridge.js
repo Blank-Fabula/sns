@@ -27,6 +27,7 @@ function setConn(ok) {
   if (!ok) { $("loginBar").hidden = true; }
   $("connectPanel").hidden = ok;
   $("trackPanel").hidden = !ok;
+  $("checkNow").hidden = !ok; // 가져오기 버튼은 맨 위 검색창 옆에 있고, 확장이 연결됐을 때만 보입니다
   $("platPanel").hidden = !ok;
   updateConnText();
 }

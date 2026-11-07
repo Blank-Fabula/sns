@@ -20,6 +20,7 @@ function markSeen(it) {
 const $ = (id) => document.getElementById(id);
 
 let winDays = 7, items = [], settings = {}, tracked = [], autoCheck = { enabled: false, hours: 3 }, checkStatus = {};
+let selIds = []; // 계정 관리에서 고른 계정(누른 순서)
 let personFocus = "", personPlat = "", groupFocus = "", activeTab = "all", token = "", connected = false, polling = null;
 
 function el(tag, props = {}, children = []) {

@@ -12,6 +12,7 @@
 <header>
   <h1>SNS 모아보기</h1>
   <input id="q" type="search" placeholder="제목·작성자 검색" aria-label="검색">
+  <button id="checkNow" class="primary" type="button" hidden>가져오기</button>
   <select id="period" aria-label="기간(가져오기·보기 공통)" title="가져올 기간과 보여줄 기간이 같이 바뀝니다">
     <option value="7" selected>최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option><option value="60">최근 60일</option>
   </select>
@@ -91,6 +92,7 @@
         <button id="ptManageBtn" type="button" role="tab" aria-selected="false">추적 계정 관리</button>
       </div>
       <div id="ptAdd">
+      <div class="row tgroup-row"><input id="tgroup" type="text" maxlength="30" placeholder="묶음 이름 (선택, 예: 취요남)" aria-label="묶음 이름" autocomplete="off"></div>
       <form id="addForm" class="row">
         <select id="tplatform" aria-label="플랫폼"><option value="youtube">유튜브</option><option value="x">X</option><option value="instagram">인스타그램</option></select>
         <input id="thandle" type="text" placeholder="이름 검색(Enter) · @계정 · 주소(메인 주소 = 내 피드)" aria-label="계정" autocomplete="off">
@@ -98,10 +100,8 @@
         <button id="searchBtn" type="button">이름으로 검색</button>
       </form>
       <div id="searchResults" class="results" hidden></div>
-      <div class="row"><input id="tgroup" type="text" maxlength="30" placeholder="묶음 이름 (선택, 예: 취요남)" aria-label="묶음 이름" autocomplete="off"></div>
       <p id="addError" class="error" hidden></p>
       <div class="row">
-        <button id="checkNow" class="primary" type="button">가져오기</button>
         <label class="row"><input id="autoEnabled" type="checkbox"> 자동 확인</label>
         <select id="autoHours" aria-label="자동 확인 주기"><option value="1">1시간마다</option><option value="3">3시간마다</option><option value="6">6시간마다</option><option value="12">12시간마다</option></select>
       </div>
@@ -110,13 +110,13 @@
       </div>
       <div id="ptManage" hidden>
       <div id="tracked" class="chips"></div>
+      <div id="selBar" class="selbar" aria-label="선택한 계정" aria-live="polite"></div>
+      <div class="row manage-pick"><button id="selClear" type="button" hidden>선택 해제</button></div>
       <form id="groupForm" class="row">
-        <select id="gAcc" aria-label="묶을 계정"></select>
         <input id="gName" type="text" maxlength="30" placeholder="묶음 이름 (비우면 해제)" aria-label="묶음 이름" autocomplete="off">
         <button type="submit">묶기</button>
       </form>
       <form id="daysForm" class="row">
-        <select id="dAcc" aria-label="기간을 따로 정할 계정"></select>
         <select id="dDays" aria-label="계정별 가져올 기간"><option value="0">기본(맨 위 기간)</option><option value="7">7일</option><option value="14">14일</option><option value="30">30일</option><option value="60">60일</option></select>
         <button type="submit">기간 적용</button>
       </form>

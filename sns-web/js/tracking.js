@@ -76,25 +76,26 @@ $("q").addEventListener("input", renderList);
 $("sort").addEventListener("change", renderList);
 try { const v = localStorage.getItem("snsView"); if (v === "group" || v === "source") $("view").value = v; } catch (e) {}
 $("view").addEventListener("change", () => { try { localStorage.setItem("snsView", $("view").value); } catch (e) {} renderList(); });
-$("groupForm").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const id = $("gAcc").value;
-  if (!id) return;
-  const name = $("gName").value.trim().slice(0, 30);
-  const before = tracked;
-  tracked = tracked.map((t) => { if (t.id !== id) return t; const c = { ...t }; if (name) c.group = name; else delete c.group; return c; });
-  renderTracked(); renderList();
-  try { await call("set", { tracked }); $("gName").value = ""; } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
-});
-$("daysForm").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const id = $("dAcc").value;
-  if (!id) return;
-  const d = Number($("dDays").value);
-  const before = tracked;
-  tracked = tracked.map((t) => { if (t.id !== id) return t; const c = { ...t }; if (d) c.days = d; else delete c.days; return c; });
+function needPick() { const b = $("selBar"); b.classList.add("need"); setTimeout(() => b.classList.remove("need"), 900); }
+$("selClear").addEventListener("click", () => { selIds = []; renderTracked(); });
+// 고른 계정 전부에 적용합니다.
+async function applyToSelected(change) {
+  if (!selIds.length) { needPick(); return; }
+  const ids = new Set(selIds), before = tracked;
+  tracked = tracked.map((t) => (ids.has(t.id) ? change({ ...t }) : t));
   renderTracked(); renderList();
   try { await call("set", { tracked }); } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
+}
+$("groupForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const name = $("gName").value.trim().slice(0, 30);
+  await applyToSelected((c) => { if (name) c.group = name; else delete c.group; return c; });
+  if (selIds.length) $("gName").value = "";
+});
+$("daysForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const d = Number($("dDays").value);
+  applyToSelected((c) => { if (d) c.days = d; else delete c.days; return c; });
 });
 $("period").addEventListener("change", () => {
   winDays = periodDays = Number($("period").value);

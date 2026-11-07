@@ -379,20 +379,24 @@ function renderTracked() {
       await call("set", { tracked }).catch(showErr);
       await call("removeVia", { ids: [t.id] }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
     });
-    box.appendChild(el("span", { class: "chip" }, [el("span", { text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") + (t.days ? " · " + t.days + "일" : "") }), rm]));
+    const label = el("span", { class: "chip-name", role: "button", tabindex: "0", title: "눌러서 선택(여러 개 가능)", text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") + (t.days ? " · " + t.days + "일" : "") });
+    const toggle = () => { selIds = selIds.includes(t.id) ? selIds.filter((x) => x !== t.id) : selIds.concat(t.id); renderTracked(); };
+    label.addEventListener("click", toggle);
+    label.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+    box.appendChild(el("span", { class: "chip" + (selIds.includes(t.id) ? " sel" : "") }, [label, rm]));
   });
-  const sel = $("gAcc"), keep = sel.value;
-  if (document.activeElement !== sel) {
-    sel.textContent = "";
-    tracked.filter((t) => t.kind !== "feed").forEach((t) => sel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
-    if (keep) sel.value = keep;
-  }
-  const dsel = $("dAcc"), dkeep = dsel.value;
-  if (document.activeElement !== dsel && document.activeElement !== $("dDays")) {
-    dsel.textContent = "";
-    tracked.filter((t) => t.kind !== "feed").forEach((t) => dsel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
-    if (dkeep) dsel.value = dkeep;
-  }
+  // 고른 계정(누른 순서)을 한 줄 바에 차례로 보여줍니다. 거기서 묶거나 기간을 정합니다.
+  selIds = selIds.filter((id) => tracked.some((t) => t.id === id));
+  const bar = $("selBar");
+  bar.textContent = "";
+  if (!selIds.length) bar.appendChild(el("span", { class: "ph", text: "위의 계정을 눌러 선택하세요 (여러 개 가능)" }));
+  selIds.forEach((id) => {
+    const t = tracked.find((x) => x.id === id);
+    bar.appendChild(el("span", { class: "selchip", text: PLATFORM[t.platform] + " " + (t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || "") }));
+  });
+  $("selClear").hidden = !selIds.length;
+  // 한 개만 골랐다면 그 계정의 현재 기간을 기간 선택에 보여줍니다.
+  if (document.activeElement !== $("dDays")) { const cur = selIds.length === 1 ? tracked.find((t) => t.id === selIds[0]) : null; $("dDays").value = String((cur && cur.days) || 0); }
   const pd = $("period");
   periodDays = winDays;
   if (document.activeElement !== pd) pd.value = String(winDays);
