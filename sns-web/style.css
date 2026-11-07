@@ -155,3 +155,5 @@ header .loginbar{padding:0}
 
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 0 8px}
 .toolbar .loginbar{padding:0}
+
+.lb.ok,.lb.ok:disabled{background:color-mix(in srgb,var(--ok) 18%,var(--card));color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 45%,var(--line));cursor:default;opacity:1}

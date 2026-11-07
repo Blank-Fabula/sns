@@ -97,7 +97,7 @@ async function doSync(s) {
   finally { syncing = false; updateConnText(); }
 }
 
-let lastClosedShown = 0, pauseDismissed = false;
+let lastClosedShown = 0, pauseDismissed = false, lastAutoResume = 0;
 let lastDataSig = "", lastStatusSig = "", lastLoginSig = "";
 async function refresh() {
   const d = await call("get");
@@ -122,8 +122,14 @@ async function refresh() {
     $("cmRetry").focus();
   }
   // 수집창이 가려져 수집이 일시정지됐다면 안내 모달을 띄웁니다(이어서 수집 / 닫기).
-  if (checkStatus.paused && checkStatus.running) { if (!pauseDismissed) $("pausedModal").hidden = false; }
-  else { pauseDismissed = false; $("pausedModal").hidden = true; }
+  // 이 웹 화면을 보고 있는 중이면 모달 없이 바로 수집창을 앞으로 내 이어서 수집합니다(몇 초 간격으로 한 번씩).
+  // 웹 화면을 벗어나 있을 때만 모달(이어서 수집/닫기)을 준비해 둡니다.
+  if (checkStatus.paused && checkStatus.running) {
+    if (document.visibilityState === "visible") {
+      $("pausedModal").hidden = true;
+      if (!pauseDismissed && Date.now() - lastAutoResume > 6000) { lastAutoResume = Date.now(); call("resumeCheck").catch(() => {}); }
+    } else if (!pauseDismissed) $("pausedModal").hidden = false;
+  } else { pauseDismissed = false; $("pausedModal").hidden = true; }
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
   if (!loginAsked) { loginAsked = true; call("checkLogin").catch(() => {}); }
   // 바뀐 부분만 다시 그려서 화면이 깜빡이지 않게 합니다.

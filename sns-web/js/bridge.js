@@ -44,7 +44,7 @@ const LOGIN_LINK = { youtube: "https://www.youtube.com/", x: "https://x.com/i/fl
 let loginState = {}, modalShown = false, loginAsked = false;
 // 로그인 창 자동 열기는 "내가 확인/가져오기를 누른 직후 30초" 안에, 매체마다 한 번만 합니다.
 // (로그인 창 자체나 새로고침이 다시 창을 여는 일이 없게 합니다.)
-let promptArmedAt = 0, promptedPlat = {};
+let promptArmedAt = 0, promptedPlat = {}, loginWatch = 0;
 function armLoginPrompt() { promptArmedAt = Date.now(); promptedPlat = {}; }
 const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
 function renderLogin() {
@@ -53,12 +53,17 @@ function renderLogin() {
   bar.textContent = "";
   bar.hidden = !connected;
   if (connected) {
-    if (need.length) bar.appendChild(el("span", { class: "hint", text: "로그인 필요:" }));
-    need.forEach((p) => bar.appendChild(loginLink(p, PLATFORM[p] + " 로그인", "lb")));
-    const re = el("button", { type: "button", text: "로그인 상태 확인" });
-    re.addEventListener("click", () => { armLoginPrompt(); re.disabled = true; re.textContent = "확인 중…"; call("checkLogin").catch(showErr); setTimeout(() => { re.disabled = false; re.textContent = "로그인 상태 확인"; }, 12000); });
-    bar.appendChild(re);
-    if (!need.length && Object.keys(loginState).length) bar.appendChild(el("span", { class: "hint", text: "확인된 매체는 모두 로그인되어 있습니다." }));
+    // 매체별 로그인 버튼: 로그인되어 있으면 눌리지 않고 연한 녹색, 아니면 눌러서 로그인 창을 엽니다.
+    Object.keys(LOGIN_LINK).forEach((p) => {
+      const on = !!(loginState[p] && loginState[p].loggedIn === true);
+      const b = el("button", { type: "button", class: "lb" + (on ? " ok" : ""), text: PLATFORM[p] + " 로그인" + (on ? " ✓" : "") });
+      if (on) { b.disabled = true; b.title = "로그인되어 있습니다"; }
+      else b.addEventListener("click", () => {
+        loginWatch = Date.now(); // 로그인하고 돌아오면 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
+        call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
+      });
+      bar.appendChild(b);
+    });
   }
   // 방금 확인한 결과에서 로그인이 필요한 매체가 나오면: 잠깐 안내를 띄우고, 그 매체 로그인 창을 맨 앞에 새로 엽니다.
   // (내가 확인·가져오기를 누른 직후 30초 안에, 매체마다 한 번만 띄웁니다.)
@@ -85,3 +90,7 @@ $("lmLater").addEventListener("click", closeLoginModal);
 $("loginModal").addEventListener("click", (e) => { if (e.target === $("loginModal")) closeLoginModal(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLoginModal(); closeViewer(); } });
 
+
+// 로그인 버튼을 누른 뒤 3분 동안은 15초마다 로그인 상태를 다시 확인해, 로그인이 끝나면 버튼이 녹색으로 바뀝니다.
+setInterval(() => { if (connected && loginWatch && Date.now() - loginWatch < 180000) call("checkLogin").catch(() => {}); }, 15000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && connected && loginWatch && Date.now() - loginWatch < 180000) call("checkLogin").catch(() => {}); });
