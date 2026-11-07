@@ -86,7 +86,11 @@
     </section>
 
     <section class="panel" id="trackPanel" hidden>
-      <h2>추적 계정</h2>
+      <div class="ptabs" role="tablist">
+        <button id="ptAddBtn" type="button" role="tab" class="active" aria-selected="true">추적 계정</button>
+        <button id="ptManageBtn" type="button" role="tab" aria-selected="false">추적 계정 관리</button>
+      </div>
+      <div id="ptAdd">
       <form id="addForm" class="row">
         <select id="tplatform" aria-label="플랫폼"><option value="youtube">유튜브</option><option value="x">X</option><option value="instagram">인스타그램</option></select>
         <input id="thandle" type="text" placeholder="이름 검색(Enter) · @계정 · 주소(메인 주소 = 내 피드)" aria-label="계정" autocomplete="off">
@@ -96,13 +100,6 @@
       <div id="searchResults" class="results" hidden></div>
       <div class="row"><input id="tgroup" type="text" maxlength="30" placeholder="묶음 이름 (선택, 예: 취요남)" aria-label="묶음 이름" autocomplete="off"></div>
       <p id="addError" class="error" hidden></p>
-      <div id="tracked" class="chips"></div>
-      <form id="groupForm" class="row">
-        <select id="gAcc" aria-label="묶을 계정"></select>
-        <input id="gName" type="text" maxlength="30" placeholder="묶음 이름 (비우면 해제)" aria-label="묶음 이름" autocomplete="off">
-        <button type="submit">묶기</button>
-      </form>
-      <p class="hint">같은 사람·브랜드의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 주면 '묶음·계정별로 보기'에서 한 줄로 모아 보여줍니다.</p>
       <div class="row">
         <button id="checkNow" class="primary" type="button">가져오기</button>
         <label class="row"><input id="autoEnabled" type="checkbox"> 자동 확인</label>
@@ -110,6 +107,21 @@
       </div>
       <p id="status" class="hint"></p>
       <p class="hint">가져오기를 누르면 크롬에 새 창이 열려 계정 페이지를 차례로 방문하고 끝나면 닫힙니다. 창이 열려 있는 동안에는 건드리지 마세요. X·인스타그램은 자동 수집이 약관상 제한될 수 있습니다.</p>
+      </div>
+      <div id="ptManage" hidden>
+      <div id="tracked" class="chips"></div>
+      <form id="groupForm" class="row">
+        <select id="gAcc" aria-label="묶을 계정"></select>
+        <input id="gName" type="text" maxlength="30" placeholder="묶음 이름 (비우면 해제)" aria-label="묶음 이름" autocomplete="off">
+        <button type="submit">묶기</button>
+      </form>
+      <form id="daysForm" class="row">
+        <select id="dAcc" aria-label="기간을 따로 정할 계정"></select>
+        <select id="dDays" aria-label="계정별 가져올 기간"><option value="0">기본(맨 위 기간)</option><option value="7">7일</option><option value="14">14일</option><option value="30">30일</option><option value="60">60일</option></select>
+        <button type="submit">기간 적용</button>
+      </form>
+      <p class="hint">같은 사람·브랜드의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 주면 '묶음·계정별로 보기'에서 한 줄로 모아 보여줍니다.</p>
+      </div>
     </section>
 
     <section class="panel" id="platPanel" hidden>

@@ -59,6 +59,7 @@ function cleanTracked(list) {
     if (typeof t.channelId === "string" && /^UC[\w-]{22}$/.test(t.channelId)) c.channelId = t.channelId;
     if (/^https:\/\/www\.youtube\.com\/(c|user)\/[^/?#]+$/.test(t.resolveUrl || "") && t.resolveUrl.length < 200) c.resolveUrl = t.resolveUrl;
     if (typeof t.group === "string" && t.group.trim()) c.group = t.group.trim().slice(0, 30);
+    if ([7, 14, 30, 60].includes(t.days)) c.days = t.days;
     out.push(c);
   }
   return out;

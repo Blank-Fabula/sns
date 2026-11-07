@@ -9,7 +9,12 @@ function relative(ms) {
 let periodDays = 7;
 $("period").value = String(periodDays);
 const publishedMs = (it) => { const t = Date.parse(it.publishedAt || ""); return Number.isNaN(t) ? it.collectedAt : t; };
-const inPeriod = (it) => !periodDays || publishedMs(it) >= Date.now() - periodDays * 86400000;
+// 계정별 기간이 있으면 그 계정의 글은 그 기간으로, 없으면 맨 위 기간으로 거릅니다.
+const inPeriod = (it) => {
+  const t = it.via ? tracked.find((x) => x.id === it.via) : null;
+  const d = (t && t.days) || periodDays;
+  return !d || publishedMs(it) >= Date.now() - d * 86400000;
+};
 
 // 이미지: 웹 화면은 외부 이미지를 막으므로 확장에 요청해 데이터로 받아 보여줍니다(보이는 카드만, 동시에 4장).
 const imgCache = new Map(), imgQueue = [];
@@ -374,13 +379,19 @@ function renderTracked() {
       await call("set", { tracked }).catch(showErr);
       await call("removeVia", { ids: [t.id] }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
     });
-    box.appendChild(el("span", { class: "chip" }, [el("span", { text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") }), rm]));
+    box.appendChild(el("span", { class: "chip" }, [el("span", { text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") + (t.days ? " · " + t.days + "일" : "") }), rm]));
   });
   const sel = $("gAcc"), keep = sel.value;
   if (document.activeElement !== sel) {
     sel.textContent = "";
     tracked.filter((t) => t.kind !== "feed").forEach((t) => sel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
     if (keep) sel.value = keep;
+  }
+  const dsel = $("dAcc"), dkeep = dsel.value;
+  if (document.activeElement !== dsel && document.activeElement !== $("dDays")) {
+    dsel.textContent = "";
+    tracked.filter((t) => t.kind !== "feed").forEach((t) => dsel.appendChild(el("option", { value: t.id, text: PLATFORM[t.platform] + " @" + (t.handle || t.channelId || "") })));
+    if (dkeep) dsel.value = dkeep;
   }
   const pd = $("period");
   periodDays = winDays;

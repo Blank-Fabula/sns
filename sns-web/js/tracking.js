@@ -86,6 +86,16 @@ $("groupForm").addEventListener("submit", async (ev) => {
   renderTracked(); renderList();
   try { await call("set", { tracked }); $("gName").value = ""; } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
 });
+$("daysForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const id = $("dAcc").value;
+  if (!id) return;
+  const d = Number($("dDays").value);
+  const before = tracked;
+  tracked = tracked.map((t) => { if (t.id !== id) return t; const c = { ...t }; if (d) c.days = d; else delete c.days; return c; });
+  renderTracked(); renderList();
+  try { await call("set", { tracked }); } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
+});
 $("period").addEventListener("change", () => {
   winDays = periodDays = Number($("period").value);
   renderList();
@@ -177,3 +187,14 @@ $("clear").addEventListener("click", async () => {
 });
 
 
+
+// 추적 계정 패널의 두 탭: '추적 계정'(추가·가져오기) / '추적 계정 관리'(계정 목록·묶음·계정별 기간)
+(function () {
+  const show = (manage) => {
+    $("ptAdd").hidden = manage; $("ptManage").hidden = !manage;
+    $("ptAddBtn").classList.toggle("active", !manage); $("ptManageBtn").classList.toggle("active", manage);
+    $("ptAddBtn").setAttribute("aria-selected", String(!manage)); $("ptManageBtn").setAttribute("aria-selected", String(manage));
+  };
+  $("ptAddBtn").addEventListener("click", () => show(false));
+  $("ptManageBtn").addEventListener("click", () => show(true));
+})();
