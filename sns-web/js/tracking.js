@@ -81,7 +81,7 @@ async function applyToSelected(change) {
   const ids = new Set(selIds), before = tracked;
   tracked = tracked.map((t) => (ids.has(t.id) ? change({ ...t }) : t));
   renderTracked(); renderList();
-  try { await call("set", { tracked }); } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
+  try { await saveTracked(); } catch (e) { tracked = before; renderTracked(); renderList(); showErr(e); }
 }
 $("groupForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -117,9 +117,14 @@ $("rmOk").addEventListener("click", async () => {
   selIds = [];
   ids.forEach((i) => removedIds.add(i)); // 확장이 아직 옛 목록을 돌려줘도 다시 나타나지 않게 합니다
   renderTracked(); renderTabs(); renderList();
-  await call("set", { tracked }).catch(showErr);
+  await saveTracked().catch(showErr);
   await call("removeVia", { ids }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
 });
+// 추적 계정 저장: 저장하는 동안(그리고 직후 몇 초)에는 주기적 새로고침이 화면 목록을 옛 목록으로 되돌리지 않게 합니다.
+async function saveTracked() {
+  trackedHold = Date.now() + 8000;
+  try { return await call("set", { tracked }); } finally { trackedHold = Date.now() + 4000; }
+}
 // 새로 추가하는 계정에서 가져올 기간(마지막 선택을 기억합니다). 추가한 뒤에는 '추적 계정 관리'에서 계정별로 바꿉니다.
 // 주소나 @계정이 아니면(예: 그냥 이름) 추가하지 않고 이름으로 검색합니다.
 const isDirect = (v) => /^https?:\/\//i.test(v) || v.startsWith("@") || SITE_START.test(v);
@@ -133,14 +138,14 @@ $("addForm").addEventListener("submit", async (ev) => {
   const acc = r.account;
   const grp = $("tgroup").value.trim().slice(0, 30);
   if (grp && acc.kind !== "feed") acc.group = grp;
-  if (!acc.days) acc.days = Number($("addDays").value) || 7; // 이 계정만의 가져올 기간
+  if (!acc.days) acc.days = Number($("addDays").value) || 30; // 이 계정만의 가져올 기간
   if (tracked.some((t) => t.id === acc.id)) { err.textContent = "이미 추가된 계정입니다."; err.hidden = false; return; }
   if (tracked.length >= MAX_TRACKED) { err.textContent = "계정은 최대 " + MAX_TRACKED + "개까지 추가할 수 있습니다."; err.hidden = false; return; }
   const before = tracked;
   tracked = [...tracked, acc];
   $("thandle").value = "";
   renderTracked(); renderList();
-  try { await call("set", { tracked }); } catch (e) { tracked = before; renderTracked(); showErr(e); return; }
+  try { await saveTracked(); } catch (e) { tracked = before; renderTracked(); showErr(e); return; }
   call("checkNow", { only: acc.id }).catch(showErr);
 });
 /* ---------- 이름으로 검색 ---------- */
@@ -152,7 +157,7 @@ function addAccount(acc) {
   const before = tracked;
   tracked = [...tracked, acc];
   renderTracked(); renderList();
-  return call("set", { tracked }).then(() => { call("checkNow", { only: acc.id }).catch(showErr); return true; }, (e) => { tracked = before; renderTracked(); showErr(e); return false; });
+  return saveTracked().then(() => { call("checkNow", { only: acc.id }).catch(showErr); return true; }, (e) => { tracked = before; renderTracked(); showErr(e); return false; });
 }
 // 추가 버튼을 누르면 이 계정에서 가져올 기간을 모달에서 고릅니다(1W·2W·1M·2M). 기본은 1M입니다.
 function pickPeriod() {

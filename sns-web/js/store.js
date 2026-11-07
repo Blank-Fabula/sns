@@ -104,8 +104,8 @@ async function refresh() {
   const d = await call("get");
   const extItems = Object.values(d.items || {});
   settings = d.settings || {};
-  tracked = Array.isArray(d.tracked) ? d.tracked : [];
-  if (removedIds.size && tracked.some((t) => removedIds.has(t.id))) {
+  if (Date.now() >= trackedHold) tracked = Array.isArray(d.tracked) ? d.tracked : [];
+  if (Date.now() >= trackedHold && removedIds.size && tracked.some((t) => removedIds.has(t.id))) {
     tracked = tracked.filter((t) => !removedIds.has(t.id));
     call("set", { tracked }).catch(() => {}); // 지운 계정이 확장에 남아 있으면 다시 지웁니다
   }

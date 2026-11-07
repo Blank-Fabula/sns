@@ -25,6 +25,7 @@ function markSeen(it) {
 }
 const $ = (id) => document.getElementById(id);
 
+let trackedHold = 0; // 추적 계정을 확장에 저장하는 중이면, 그 사이 도착한 옛 목록이 화면 목록을 덮어쓰지 않게 막는 시각
 let winDays = 30, items = [], settings = {}, tracked = [], autoCheck = { enabled: true, hours: 1 }, checkStatus = {};
 let selIds = []; // 계정 관리에서 고른 계정(누른 순서)
 let personFocus = "", personPlat = "", groupFocus = "", activeTab = "people", token = "", connected = false, polling = null;

@@ -368,6 +368,14 @@ function renderList() {
     const platOf = (it) => (it.source.startsWith("youtube") ? "youtube" : it.source);
     const rows = [...people.values()].map((p) => ({ ...p, list: list.filter((it) => p.ids.has(it.via)).sort((a, b) => publishedMs(b) - publishedMs(a)) }));
     rows.sort((a, b) => (b.list[0] ? publishedMs(b.list[0]) : 0) - (a.list[0] ? publishedMs(a.list[0]) : 0));
+    // 검색 중에는 어느 사람에도 묶이지 않은 계정(묶음 없음·피드 등)의 결과도 '그 밖의 결과'로 함께 보여줍니다.
+    const personIds = new Set(); people.forEach((p) => p.ids.forEach((id) => personIds.add(id)));
+    const others = q && page !== "fav" ? list.filter((it) => !personIds.has(it.via)) : [];
+    if (q) {
+      // 검색 중에는 검색에 걸린 글이 있는 사람만 보여줍니다(빈 사람 줄은 숨김).
+      rows.splice(0, rows.length, ...rows.filter((r) => r.list.length));
+      if (!rows.length && !others.length) { g.appendChild(el("p", { class: "hint", text: "검색 결과가 없습니다." })); $("empty").hidden = true; return; }
+    }
     if (page === "fav") {
       rows.splice(0, rows.length, ...rows.filter((r) => favs.has(r.name)));
       if (!rows.length) { g.appendChild(el("p", { class: "hint", text: "즐겨찾기한 사람이 없습니다. 홈의 사람 이름 옆 ☆를 눌러 추가하세요." })); $("empty").hidden = true; return; }
@@ -427,6 +435,13 @@ function renderList() {
         const head = el("div", { class: "sec-head" }, [personAvatar(r), nameBtn, favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + [...r.plats].map((p) => PLATFORM[p]).join("·") })]);
         body.appendChild(el("section", { class: "sec" }, [head, mediaRows(r, 20, null)]));
       });
+    }
+    if (others.length && !personFocus) {
+      const o = { name: "그 밖의 결과", list: others, plats: new Set(others.map((it) => tabOf(it.source))) };
+      body.appendChild(el("section", { class: "sec" }, [
+        el("div", { class: "sec-head" }, [el("h3", { text: o.name }), el("span", { class: "n", text: others.length + "건" })]),
+        mediaRows(o, 20, null),
+      ]));
     }
     g.appendChild(body);
     $("empty").hidden = true;
