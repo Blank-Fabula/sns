@@ -131,7 +131,14 @@ async function refresh() {
     } else if (!pauseDismissed) $("pausedModal").hidden = false;
   } else { pauseDismissed = false; $("pausedModal").hidden = true; }
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
-  if (!loginAsked) { loginAsked = true; call("checkLogin").catch(() => {}); }
+  // 웹을 처음 열 때의 로그인 확인은 3개 매체의 메인 화면을 백그라운드 탭으로 잠깐 열었다 닫습니다.
+  // 30분 안에 확인한 적이 있으면 건너뛰어, 새로고침할 때마다 탭이 떴다 사라지지 않게 합니다.
+  if (!loginAsked) {
+    loginAsked = true;
+    // 확인이 필요한(처음이거나 오래된) 매체만 확인합니다.
+    const stale = Object.keys(LOGIN_LINK).filter((p) => !loginState[p] || Date.now() - (loginState[p].at || 0) > 30 * 60000);
+    if (stale.length) call("checkLogin", { platforms: stale }).catch(() => {});
+  }
   // 바뀐 부분만 다시 그려서 화면이 깜빡이지 않게 합니다.
   let mx = 0;
   for (const it of items) if (it.collectedAt > mx) mx = it.collectedAt;

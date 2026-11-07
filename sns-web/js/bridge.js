@@ -92,5 +92,11 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLog
 
 
 // 로그인 버튼을 누른 뒤 3분 동안은 15초마다 로그인 상태를 다시 확인해, 로그인이 끝나면 버튼이 녹색으로 바뀝니다.
-setInterval(() => { if (connected && loginWatch && Date.now() - loginWatch < 180000) call("checkLogin").catch(() => {}); }, 15000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && connected && loginWatch && Date.now() - loginWatch < 180000) call("checkLogin").catch(() => {}); });
+// 아직 로그인되지 않은 매체만 확인합니다(이미 로그인된 매체의 탭은 다시 열지 않습니다).
+const recheckLogin = () => {
+  if (!connected || !loginWatch || Date.now() - loginWatch > 180000) return;
+  const todo = Object.keys(LOGIN_LINK).filter((p) => !(loginState[p] && loginState[p].loggedIn === true));
+  if (todo.length) call("checkLogin", { platforms: todo }).catch(() => {});
+};
+setInterval(recheckLogin, 20000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") recheckLogin(); });
