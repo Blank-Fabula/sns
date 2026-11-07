@@ -146,3 +146,7 @@ html:has(#viewer:not([hidden])), body:has(#viewer:not([hidden])) { overflow: hid
 .selbar.need{border-color:var(--danger);box-shadow:0 0 0 2px color-mix(in srgb,var(--danger) 25%,transparent)}
 .selchip{padding:3px 9px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:13px}
 .manage-pick{margin:0 0 8px}
+
+.selchip{display:inline-flex;align-items:center;gap:4px}
+.selx{border:0;background:none;color:inherit;cursor:pointer;padding:0 2px;font:inherit;line-height:1;opacity:.85}
+.selx:hover{opacity:1}

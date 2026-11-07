@@ -370,20 +370,11 @@ function renderTracked() {
   box.textContent = "";
   tracked.forEach((t) => {
     const name = t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || t.resolveUrl;
-    const rm = el("button", { type: "button", "aria-label": name + " 삭제", text: "×" });
-    rm.addEventListener("click", async () => {
-      tracked = tracked.filter((x) => x.id !== t.id);
-      items = items.filter((it) => it.via !== t.id); // 이 계정으로 모은 글도 함께 지웁니다
-      savedItems = savedItems.filter((it) => it.via !== t.id); // 서버 저장본에서도 뺍니다
-      renderTracked(); renderTabs(); renderList();
-      await call("set", { tracked }).catch(showErr);
-      await call("removeVia", { ids: [t.id] }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
-    });
     const label = el("span", { class: "chip-name", role: "button", tabindex: "0", title: "눌러서 선택(여러 개 가능)", text: PLATFORM[t.platform] + " " + name + (t.group ? " · " + t.group : "") + (t.days ? " · " + t.days + "일" : "") });
     const toggle = () => { selIds = selIds.includes(t.id) ? selIds.filter((x) => x !== t.id) : selIds.concat(t.id); renderTracked(); };
     label.addEventListener("click", toggle);
     label.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
-    box.appendChild(el("span", { class: "chip" + (selIds.includes(t.id) ? " sel" : "") }, [label, rm]));
+    box.appendChild(el("span", { class: "chip" + (selIds.includes(t.id) ? " sel" : "") }, [label]));
   });
   // 고른 계정(누른 순서)을 한 줄 바에 차례로 보여줍니다. 거기서 묶거나 기간을 정합니다.
   selIds = selIds.filter((id) => tracked.some((t) => t.id === id));
@@ -392,7 +383,10 @@ function renderTracked() {
   if (!selIds.length) bar.appendChild(el("span", { class: "ph", text: "위의 계정을 눌러 선택하세요 (여러 개 가능)" }));
   selIds.forEach((id) => {
     const t = tracked.find((x) => x.id === id);
-    bar.appendChild(el("span", { class: "selchip", text: PLATFORM[t.platform] + " " + (t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || "") }));
+    const nm = PLATFORM[t.platform] + " " + (t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || "");
+    const x = el("button", { type: "button", class: "selx", "aria-label": nm + " 선택 해제", title: "이 계정만 선택 해제", text: "×" });
+    x.addEventListener("click", () => { selIds = selIds.filter((v) => v !== id); renderTracked(); });
+    bar.appendChild(el("span", { class: "selchip" }, [el("span", { text: nm }), x]));
   });
   $("selClear").hidden = !selIds.length;
   // 한 개만 골랐다면 그 계정의 현재 기간을 기간 선택에 보여줍니다.

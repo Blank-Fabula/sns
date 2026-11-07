@@ -97,6 +97,30 @@ $("daysForm").addEventListener("submit", (ev) => {
   const d = Number($("dDays").value);
   applyToSelected((c) => { if (d) c.days = d; else delete c.days; return c; });
 });
+// 제거: 선택한 계정을 추적 목록에서 지웁니다(그 계정으로 모은 글도 함께). 확인 창에서 한 번 더 확인합니다.
+const closeRm = () => { $("rmModal").hidden = true; };
+$("selRemove").addEventListener("click", () => {
+  if (!selIds.length) { needPick(); return; }
+  $("rmList").textContent = selIds.map((id) => { const t = tracked.find((x) => x.id === id); return t ? PLATFORM[t.platform] + " " + (t.kind === "feed" ? FEED[t.platform] : t.handle ? "@" + t.handle : t.channelId || "") : ""; }).filter(Boolean).join(" · ");
+  $("rmModal").hidden = false;
+  $("rmCancel").focus();
+});
+$("rmX").addEventListener("click", closeRm);
+$("rmCancel").addEventListener("click", closeRm);
+$("rmModal").addEventListener("click", (e) => { if (e.target === $("rmModal")) closeRm(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("rmModal").hidden) closeRm(); });
+$("rmOk").addEventListener("click", async () => {
+  closeRm();
+  const ids = selIds.slice(), set = new Set(ids);
+  if (!ids.length) return;
+  tracked = tracked.filter((x) => !set.has(x.id));
+  items = items.filter((it) => !set.has(it.via)); // 이 계정으로 모은 글도 함께 지웁니다
+  savedItems = savedItems.filter((it) => !set.has(it.via)); // 서버 저장본에서도 뺍니다
+  selIds = [];
+  renderTracked(); renderTabs(); renderList();
+  await call("set", { tracked }).catch(showErr);
+  await call("removeVia", { ids }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
+});
 $("period").addEventListener("change", () => {
   winDays = periodDays = Number($("period").value);
   renderList();
