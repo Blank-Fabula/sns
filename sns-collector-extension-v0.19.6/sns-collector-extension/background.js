@@ -1,6 +1,6 @@
 // 수집된 글을 검증해서 chrome.storage.local에 저장하고, 등록한 계정을 확인합니다.
 // 외부 서버로는 아무것도 보내지 않습니다. (계정 페이지를 직접 열어 읽는 동작만 있습니다)
-const WINDOW_DAYS = 7; // 기본 가져오기 기간(설정에서 7·14·30일로 바꿀 수 있음)
+const WINDOW_DAYS = 30; // 기본 가져오기 기간(설정에서 7·14·30일로 바꿀 수 있음)
 async function windowDays() {
   const d = await chrome.storage.local.get("windowDays");
   return [7, 14, 30, 60].includes(d.windowDays) ? d.windowDays : WINDOW_DAYS;
@@ -608,9 +608,9 @@ async function bridgeOp(msg) {
   if (msg.op === "checkAuto") {
     // 웹 화면이 보이는 동안에만 호출됩니다. 자동 확인이 켜져 있고, 마지막 확인 후 정한 주기가 지났을 때만 시작합니다.
     const d = await chrome.storage.local.get(["autoCheck", "status"]);
-    const cfg = d.autoCheck || {}, st = d.status || {};
-    const hours = [1, 3, 6, 12].includes(cfg.hours) ? cfg.hours : 3;
-    if (!cfg.enabled || st.running || draining || checkQueue.length) return { started: false };
+    const st = d.status || {};
+    const hours = 1; // 자동 확인은 1시간마다 고정(항상 켜짐)
+    if (st.running || draining || checkQueue.length) return { started: false };
     if (st.lastRun && Date.now() - st.lastRun < hours * 3600000) return { started: false };
     requestCheck("shallow", "");
     return { started: true };

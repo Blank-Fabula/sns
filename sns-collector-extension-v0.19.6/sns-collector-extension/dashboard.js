@@ -85,7 +85,7 @@ function publishedMs(it) {
 }
 
 // 보기 기간(일). 0이면 전체. 기본은 최근 7일입니다.
-let periodDays = 7;
+let periodDays = 30;
 try {
   const saved = localStorage.getItem("periodDays");
   if (saved !== null && !Number.isNaN(Number(saved))) periodDays = Number(saved);
@@ -301,8 +301,6 @@ function renderTracked() {
     });
     box.appendChild(el("span", { class: "chip" }, [el("span", { text: `${PLATFORM[t.platform]} ${name}` }), remove]));
   });
-  $("autoEnabled").checked = !!autoCheck.enabled;
-  $("autoHours").value = String(autoCheck.hours || 3);
   $("checkNow").disabled = !!checkStatus.running || tracked.length === 0;
   $("status").textContent = checkStatus.running
     ? "확인 중… (탭이 잠깐 열렸다 닫힙니다)"
@@ -426,16 +424,6 @@ $("searchBtn").addEventListener("click", () => {
       );
     });
   });
-});
-
-$("autoEnabled").addEventListener("change", async () => {
-  autoCheck = { ...autoCheck, enabled: $("autoEnabled").checked };
-  await chrome.storage.local.set({ autoCheck });
-});
-
-$("autoHours").addEventListener("change", async () => {
-  autoCheck = { ...autoCheck, hours: Number($("autoHours").value) };
-  await chrome.storage.local.set({ autoCheck });
 });
 
 $("checkNow").addEventListener("click", () => {

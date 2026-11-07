@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SNS 신규글 모아보기",
-  "version": "0.19.4",
+  "version": "0.19.6",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm0NTmg8zLV/xjHIsUBR5EuXjsWDgAiquQx4m0MigNSBjk++WIViXyWTUBSozz0xnK8kkxihGChSTbj/g0PPzJL/QUhXxi5YDkAFo39DYpsC4/aYflWQJF2x8FHZK8ICESBprq5hD7Seq2RlgeNM5d7T50J2eMooqzt+nZSjrwDicoLyYUjtM6AB2Wf38fx58qkRQ22u49rWeEIVZc5vegQ7crkpOv8JA5ZP5DLTc7E14NT7vYO/zZmFAtCtI7QirXpAZ+uqbBi0KDoCtRYEG8sak0I2BwkCyZ6vXmST2KAfXcgD3Ur7A6t81JkYHNFv/dke1Ehzj2Ib2feBH6OOgtQIDAQAB",
   "description": "내가 직접 보는 유튜브·X·인스타그램 화면의 새 글을 내 브라우저 안에만 모아서 한 곳에서 보여줍니다.",
   "permissions": [
