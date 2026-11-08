@@ -41,6 +41,24 @@ function pumpSmall() {
     smallActive++;
     const done = () => { smallActive--; pumpSmall(); };
     const direct = () => { if (img.isConnected) { img.addEventListener("error", () => img.remove(), { once: true }); img.src = url; } done(); };
+    // 빠른 길: 받아서 줄이는 것(디코딩·인코딩)을 메인 화면 작업과 따로(비동기) 처리합니다. 안 되면 아래 기존 방식으로.
+    if (typeof createImageBitmap === "function" && typeof OffscreenCanvas === "function") {
+      fetch(url, { mode: "cors", referrerPolicy: "no-referrer", credentials: "omit" })
+        .then((r) => { if (!r.ok) throw new Error("http"); return r.blob(); })
+        .then((blob) => createImageBitmap(blob, { resizeWidth: 520, resizeQuality: "medium" }))
+        .then((bm) => {
+          const oc = new OffscreenCanvas(bm.width, bm.height);
+          oc.getContext("2d").drawImage(bm, 0, 0);
+          if (bm.close) bm.close();
+          return oc.convertToBlob({ type: "image/jpeg", quality: 0.82 });
+        })
+        .then((b2) => { const u = URL.createObjectURL(b2); smallCache.set(url, u); if (img.isConnected) img.src = u; done(); })
+        .catch(() => slow());
+      continue;
+    }
+    slow();
+    continue;
+    function slow() {
     const t = new Image();
     t.crossOrigin = "anonymous"; t.referrerPolicy = "no-referrer"; t.decoding = "async";
     t.onerror = direct;
@@ -61,6 +79,7 @@ function pumpSmall() {
       } catch (e) { direct(); }
     };
     t.src = url;
+    }
   }
 }
 function loadSmall(url, img) {
