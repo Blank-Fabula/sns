@@ -223,6 +223,25 @@ async function visitPost(url) {
   }
 }
 
+// 검색 우선: 이름 검색이 들어오면 진행 중인 수집(보이는 수집 창)을 잠시 멈추고, 검색이 끝나면 멈춘 페이지부터 이어서 수집합니다.
+let searchActive = 0;          // 지금 진행 중인(또는 대기 중인) 검색 수
+let interruptedBySearch = false; // 검색 때문에 수집 창을 닫았는지(수집 루프가 확인하고 같은 페이지를 다시 방문)
+async function pauseCollectForSearch() {
+  searchActive += 1;
+  if (deepWin) {
+    interruptedBySearch = true;
+    await setStatus({ message: "검색을 먼저 하는 중이라 수집을 잠시 멈췄습니다(검색이 끝나면 이어서 수집)", paused: true });
+    await closeDeep();
+  }
+}
+async function resumeCollectAfterSearch() {
+  // 매체별 검색이 연달아 올 수 있어, 잠깐(3초) 더 검색 우선을 유지한 뒤 수집을 이어갑니다.
+  setTimeout(() => { searchActive = Math.max(0, searchActive - 1); }, 3000);
+}
+async function waitSearchIdle() {
+  while (searchActive > 0) await sleep(400);
+}
+
 // 이름 검색: 사이트의 검색 화면을 작은 창으로 열어 결과를 읽어 옵니다.
 // 보이지 않는 탭에서는 인스타그램·X·유튜브가 화면을 제대로 그리지 않아 결과나 사진이 비므로, 잠깐 눈에 보이는 창을 씁니다(끝나면 자동으로 닫힘).
 const searchWins = new Map(); // 이름 검색 창: 탭 번호 → 창 번호
@@ -396,9 +415,16 @@ async function runCheck({ mode, only }) {
     const errors = [];
     for (let i = 0; i < targets.length; i++) {
       const { who, url, via, days: tdays } = targets[i];
-      await setStatus({ running: true, message: `확인 중: ${who} (${i + 1}/${targets.length})` });
+      if (searchActive > 0) { await waitSearchIdle(); interruptedBySearch = false; } // 검색이 먼저입니다
+      await setStatus({ running: true, message: `확인 중: ${who} (${i + 1}/${targets.length})`, paused: false });
       try {
         const stats = mode === "deep" ? await visitDeep(url, via) : await visitShallow(url, via);
+        if (stats && stats.closed && interruptedBySearch && !cancelRequested) {
+          // 검색 때문에 수집 창을 닫았습니다: 검색이 끝나기를 기다렸다가 같은 페이지부터 다시 수집합니다(이미 모은 글은 그대로).
+          interruptedBySearch = false; deepWin = null;
+          await waitSearchIdle();
+          i -= 1; continue;
+        }
         if (stats && stats.closed) {
           // 사용자가 수집 창을 닫았습니다: 그때까지 모은 글은 남기고, 남은 계정은 확인하지 않고 멈춥니다.
           deepWin = null;
@@ -540,7 +566,10 @@ async function bridgeOp(msg) {
     const q = typeof p.q === "string" ? p.q.trim().slice(0, 60) : "";
     const url = BRIDGE_PLATFORMS.has(p.platform) ? searchUrl(p.platform, q) : "";
     if (!q || !url) throw new Error("검색어나 매체가 올바르지 않습니다.");
-    const stats = await visitSearch(url, q);
+    await pauseCollectForSearch();
+    let stats;
+    try { stats = await visitSearch(url, q); }
+    finally { await resumeCollectAfterSearch(); }
     return withAvatars((stats && stats.results) || []);
   }
   if (msg.op === "fetchPost") {
