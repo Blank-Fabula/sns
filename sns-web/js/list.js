@@ -30,15 +30,20 @@ function pumpImg() {
 }
 function loadImg(url, img) {
   // 일반 웹 주소(Vercel 등)에서는 이미지를 바로 불러옵니다. claude.ai 안에서만 확장을 거칩니다.
-  if (!window.claude) { if (/^https:\/\//.test(url || "")) { img.addEventListener("error", () => img.remove()); img.src = url; } else img.remove(); return; }
+  if (!window.claude) { if (/^https:\/\//.test(url || "")) { img.addEventListener("error", () => img.remove(), { once: true }); img.src = url; } else img.remove(); return; }
   if (!connected || !/^https:\/\//.test(url || "")) { img.remove(); return; }
   if (imgCache.has(url)) { const v = imgCache.get(url); v ? (img.src = v) : img.remove(); return; }
   imgQueue.push({ url, img });
   pumpImg();
 }
+// 화면 근처(위아래 약 1200px)의 그림만 메모리에 올리고, 멀어지면 내려놓습니다(인스타그램 252장처럼 큰 그림이 수백 장 쌓여 렉 걸리는 것 방지). 칸 크기는 16:9로 고정이라 다시 올려도 위치가 안 밀립니다.
 const imgObserver = new IntersectionObserver((entries) => {
-  entries.forEach((e) => { if (e.isIntersecting) { imgObserver.unobserve(e.target); loadImg(e.target.dataset.src, e.target); } });
-}, { rootMargin: "300px" });
+  entries.forEach((e) => {
+    const img = e.target;
+    if (e.isIntersecting) { if (!img.getAttribute("src") && img.isConnected) loadImg(img.dataset.src, img); }
+    else if (img.getAttribute("src")) img.removeAttribute("src");
+  });
+}, { rootMargin: "1200px 0px" });
 
 // 글 열기: 유튜브 영상·X·인스타그램 글은 이 페이지 안에서 바로 보고, 그 밖(유튜브 게시물 등)은 새 크롬 창으로 엽니다.
 function embedFor(it) {
