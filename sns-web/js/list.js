@@ -221,6 +221,22 @@ $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) clo
 
 
 // 카드가 많을 때(검색 결과 등) 한꺼번에 수백 장을 그리면 이미지·레이어가 과해 화면이 깨지며 멈출 수 있어, 48장씩 스크롤에 맞춰 이어서 그립니다.
+
+let backCtx = null; // 매체 이름을 눌러 들어오기 전 화면(돌아가기용)
+// "352건 · 인스타그램·X·유튜브": 매체 이름을 누르면 이 사람의 그 매체 글만 모아 봅니다.
+function platMeta(r) {
+  const span = el("span", { class: "n" });
+  span.append(document.createTextNode(r.list.length + "건 · "));
+  platOrder([...r.plats]).forEach((p, i) => {
+    if (i) span.append(document.createTextNode("·"));
+    const a = el("span", { class: "platlink", role: "button", tabindex: "0", text: PLATFORM[p] });
+    const go = (e) => { e.stopPropagation(); e.preventDefault(); backCtx = { tab: activeTab, pf: personFocus, pp: personPlat, af: acctFocus, gf: groupFocus, pg: page, st: ($("grid") || {}).scrollTop || 0 }; activeTab = "people"; acctFocus = ""; personFocus = r.name; personPlat = p; renderList(); }; // 이 사람의 이 매체 글만
+    a.addEventListener("click", go);
+    a.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") go(e); });
+    span.append(a);
+  });
+  return span;
+}
 function appendProgressive(g, arr, step) {
   step = step || 48;
   let n = 0;
@@ -450,7 +466,7 @@ function renderList() {
       p.ids.add(t.id); p.plats.add(t.platform);
     });
     if (!people.size) {
-      g.appendChild(el("p", { class: "hint", text: "아직 묶음이 없습니다. 왼쪽 '추적 계정'에서 같은 사람의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 지정하면, 여기서 그 사람 기준으로 모아 볼 수 있습니다." }));
+      g.appendChild(el("p", { class: "hint", text: "아직 묶음이 없습니다. 왼쪽 '추적 계정'에서 같은 사람의 유튜브·X·인스타 계정에 같은 묶음 이름을 지정하면, 여기서 그 사람 기준으로 모아 볼 수 있습니다." }));
       $("empty").hidden = true;
       // 묶음이 하나도 없을 때도 오른쪽 사람 목록 카드를 같은 자리에 비어 있는 채로 보여줍니다
       if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 사람" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
@@ -511,14 +527,21 @@ function renderList() {
       const r = rows.find((x) => x.name === personFocus);
       if (personPlat) {
         const back = el("button", { type: "button", text: "← " + r.name });
-        back.addEventListener("click", () => { personPlat = ""; renderList(); });
-        const grid = el("div", { class: "cards" }, [el("div", { class: "sec-head", style: "grid-column: 1 / -1" }, [back, el("h3", { text: SRC_LABELS[personPlat] })])]);
-        r.list.filter((it) => it.source === personPlat).slice(0, 300).forEach((it) => grid.appendChild(card(it)));
+        back.addEventListener("click", () => { if (backCtx) {
+          const c = backCtx; backCtx = null;
+          activeTab = c.tab; personFocus = c.pf; personPlat = c.pp; acctFocus = c.af; groupFocus = c.gf;
+          if (c.pg && c.pg !== page) { page = c.pg; try { applyPage(); } catch (e) {} }
+          renderList();
+          requestAnimationFrame(() => { const g = $("grid"); if (g) g.scrollTop = c.st || 0; }); // 보던 위치로
+        } else { personPlat = ""; renderList(); }
+      });
+        const grid = el("div", { class: "cards" }, [el("div", { class: "sec-head", style: "grid-column: 1 / -1" }, [back, el("h3", { text: SRC_LABELS[personPlat] || PLATFORM[personPlat] || personPlat })])]);
+        r.list.filter((it) => it.source === personPlat || tabOf(it.source) === personPlat).slice(0, 300).forEach((it) => grid.appendChild(card(it)));
         body.appendChild(grid);
       } else {
         body.appendChild(el("section", { class: "sec" }, [
-          el("div", { class: "sec-head" }, [personAvatar(r), el("h3", { text: r.name }), favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + platOrder([...r.plats]).map((p) => PLATFORM[p]).join("·") })]),
-          mediaRows(r, 30, (k) => { personPlat = k; renderList(); }),
+          el("div", { class: "sec-head" }, [personAvatar(r), el("h3", { text: r.name }), favStar(r.name), platMeta(r)]),
+          mediaRows(r, 30, (k) => { backCtx = null; personPlat = k; renderList(); }),
         ]));
       }
     } else {
@@ -528,7 +551,7 @@ function renderList() {
         const go = () => { personFocus = r.name; personPlat = ""; renderList(); };
         nameBtn.addEventListener("click", go);
         nameBtn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
-        const head = el("div", { class: "sec-head" }, [personAvatar(r), nameBtn, favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + platOrder([...r.plats]).map((p) => PLATFORM[p]).join("·") })]);
+        const head = el("div", { class: "sec-head" }, [personAvatar(r), nameBtn, favStar(r.name), platMeta(r)]);
         body.appendChild(el("section", { class: "sec" }, [head, mediaRows(r, 20, null)]));
       });
     }

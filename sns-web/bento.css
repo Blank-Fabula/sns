@@ -1217,8 +1217,13 @@ html[data-design="bento"] #grid .sec .sec{background:transparent !important;box-
 
 /* 라이트 모드: 카드가 바탕과 거의 같은 흰색이라 구분이 안 되던 것 — 카드는 흰색 + 옅은 테두리·그림자, 섹션 바탕은 살짝 어둡게 */
 html[data-design="bento"]:not([data-theme="dark"]) #grid .sec{background:rgba(244,243,241,.75) !important}
-html[data-design="bento"]:not([data-theme="dark"]) #grid .sec .card{background:#fff !important;box-shadow:0 1px 3px rgba(40,38,35,.12),0 0 0 1px rgba(40,38,35,.06) !important}
+html[data-design="bento"]:not([data-theme="dark"]) #grid .sec .card{background:#fcfcfc !important;box-shadow:0 1px 3px rgba(40,38,35,.12),0 0 0 1px rgba(40,38,35,.06) !important}
 html[data-design="bento"]:not([data-theme="dark"]) #grid .sec .sec{background:transparent !important}
 
 /* 라이트 모드: 섹션 테두리를 조금 더 진하게 */
 html[data-design="bento"]:not([data-theme="dark"]) #grid > .sec,html[data-design="bento"]:not([data-theme="dark"]) #grid.sections > .sec,html[data-design="bento"]:not([data-theme="dark"]) #grid > .sections > .sec{border:1px solid rgba(40,38,35,.16) !important}
+html[data-design="bento"] .platlink{cursor:pointer;border-radius:6px;padding:0 1px;transition:color .12s}
+html[data-design="bento"] .platlink:hover,html[data-design="bento"] .platlink:focus-visible{color:var(--fg);text-decoration:underline;text-underline-offset:3px;outline:0}
+
+/* 라이트 모드: 큰 패널(#grid) 바탕을 순백색으로(카드·뱃지 흰색과 동일) */
+html[data-design="bento"]:not([data-theme="dark"]) #grid{background:#fcfcfc !important}

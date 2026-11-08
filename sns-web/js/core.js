@@ -1,9 +1,9 @@
-const LABELS = { people: "사람별", youtube: "유튜브", x: "X", instagram: "인스타그램" };
+const LABELS = { people: "사람별", youtube: "유튜브", x: "X", instagram: "인스타" };
 /* 오른쪽 "현재 작업" 카드 아래 표시되는 정보 — 여기서 바꾸면 됩니다 */
 const WEB_VERSION = "v265";
 const TEAM_NAME = "WebMonster";
 const TEAM_GITHUB = "https://github.com/WM-WebMonsters";
-const SRC_LABELS = { "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타그램" };
+const SRC_LABELS = { "youtube-video": "유튜브 영상", "youtube-post": "유튜브 게시물", x: "X", instagram: "인스타" };
 let searchPlats = ["youtube", "x", "instagram"]; // 통합 검색에서 찾을 매체
 try { const v = JSON.parse(localStorage.getItem("snsSearchPlats") || "null"); if (Array.isArray(v)) { const f = v.filter((p) => ["youtube", "x", "instagram"].includes(p)); if (f.length) searchPlats = f; } } catch (e) {}
 let ytMode = "both"; // 유튜브 탭: video(영상만) / both(둘 다) / post(게시물만)
@@ -11,7 +11,7 @@ try { const m = localStorage.getItem("snsYtMode"); if (m === "video" || m === "p
 const tabOf = (s) => (String(s).startsWith("youtube") ? "youtube" : s);
 const PLAT_ORDER = ["instagram", "x", "youtube"]; // 표시 순서
 function platOrder(a) { return a.slice().sort((p, q) => PLAT_ORDER.indexOf(p) - PLAT_ORDER.indexOf(q)); }
-const PLATFORM = { youtube: "유튜브", x: "X", instagram: "인스타그램" };
+const PLATFORM = { youtube: "유튜브", x: "X", instagram: "인스타" };
 const RESERVED = new Set(["home", "explore", "i", "search", "p", "reel", "reels", "accounts", "settings", "messages"]);
 const MAX_TRACKED = 30;
 /* ---------- 확인한 글 기록(이어보기) : 연 글을 이 브라우저에만 기록합니다 ---------- */

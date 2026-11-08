@@ -51,7 +51,7 @@ function parseAccount(platformHint, raw) {
       if (!parts.length) feed = true; // 인스타그램 메인 → 홈 피드
       else handle = parts[0];
     } else {
-      return { error: "지원하지 않는 사이트입니다. 유튜브·X·인스타그램 주소만 넣을 수 있습니다." };
+      return { error: "지원하지 않는 사이트입니다. 유튜브·X·인스타 주소만 넣을 수 있습니다." };
     }
   } else {
     handle = s.replace(/^@/, "");
