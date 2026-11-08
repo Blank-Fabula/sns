@@ -38,6 +38,9 @@ function setConn(ok) {
   connected = ok;
   if (!ok) { $("loginBar").hidden = true; }
   $("connectPanel").hidden = ok;
+  // 저장된 연결 코드로 자동 연결됐지만 로그인 세션이 없는 경우에도 계정 버튼은 보여서(설정·로그아웃) 다시 로그인할 수 있게 합니다.
+  $("connAcct").hidden = !ok;
+  if (ok && !$("menuWho").textContent.trim()) $("menuWho").textContent = "로그인 정보 없음 (연결만 된 상태)";
   applyPage();
   $("checkNow").hidden = false; $("checkNow").classList.toggle("off", !ok); // 새로고침 버튼은 항상 보이고, 가운데 점이 연결 상태(초록=연결됨)를 알려 줍니다
   updateConnText();

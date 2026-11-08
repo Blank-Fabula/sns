@@ -363,6 +363,8 @@ function renderList() {
     if (!people.size) {
       g.appendChild(el("p", { class: "hint", text: "아직 묶음이 없습니다. 왼쪽 '추적 계정'에서 같은 사람의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 지정하면, 여기서 그 사람 기준으로 모아 볼 수 있습니다." }));
       $("empty").hidden = true;
+      // 묶음이 하나도 없을 때도 오른쪽 사람 목록 카드를 같은 자리에 비어 있는 채로 보여줍니다
+      if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 사람" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
       return;
     }
     const platOf = (it) => (it.source.startsWith("youtube") ? "youtube" : it.source);
