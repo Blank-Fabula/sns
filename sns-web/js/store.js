@@ -1,6 +1,6 @@
 /* ---------- 내 계정에 저장(서버) : 다른 기기에서도 로그인하면 마지막 저장본이 보이게 합니다 ---------- */
 // 확장이 연결된 PC는 글·추적 계정을 서버(/api/sync)에 올리고, 확장이 없는 기기는 그 저장본을 불러와 보여 줍니다.
-let savedAt = 0, saveNote = "", lastSig = "", syncTimer = 0, syncing = false, lastPushAt = 0, importedTracked = false;
+let savedAt = 0, saveNote = "", lastSig = "", syncTimer = 0, syncing = false, lastPushAt = 0, importedTracked = false, forceSync = false;
 let savedItems = [], savedMeta = null, baseTrackedSig = ""; // baseTrackedSig: 마지막으로 서버와 맞춘 추적 계정 목록 // 서버에서 불러온 저장본(확장 글과 합쳐서 보여줍니다)
 let chunkSigs = [];
 async function sapi(action, extra) {
@@ -47,11 +47,11 @@ function sig() {
 }
 function maybeSync() {
   if (!sess || !connected) return;
-  if (!items.length && !tracked.length) return; // 아무것도 없는 새 확장이 저장본을 덮어쓰지 않게 합니다
+  if (!forceSync && !items.length && !tracked.length) return; // 아무것도 없는 새 확장이 저장본을 덮어쓰지 않게 합니다(직접 지운 경우는 예외)
   const s = sig();
-  if (s === lastSig) return;
+  if (!forceSync && s === lastSig) return;
   clearTimeout(syncTimer);
-  const wait = Math.max(15000, lastPushAt + 60000 - Date.now()); // 글이 계속 들어와도 1분에 한 번만 저장
+  const wait = forceSync ? 300 : Math.max(15000, lastPushAt + 60000 - Date.now()); // 글이 계속 들어와도 1분에 한 번만 저장
   syncTimer = setTimeout(() => doSync(s), wait);
 }
 async function doSync(s) {
@@ -60,8 +60,9 @@ async function doSync(s) {
   try {
     // 다른 기기가 그 사이에 저장했다면 그 내용을 합친 뒤에 올립니다(덮어써서 잃지 않게).
     let src = items, pushTracked = tracked;
+    const forced = forceSync; forceSync = false;
     try {
-      const m = (await sapi("meta")).meta;
+      const m = forced ? null : (await sapi("meta")).meta; // 직접 지운 직후에는 서버 옛 내용을 다시 합치지 않습니다
       if (m && (Number(m.savedAt) || 0) > savedAt) {
         const fetched = [];
         for (let i = 0; i < (m.chunks || 0); i++) fetched.push(...((await sapi("chunk", { i })).items || []));
@@ -97,7 +98,10 @@ async function doSync(s) {
   finally { syncing = false; updateConnText(); }
 }
 
+let prevRunning = false;
 const removedIds = new Set();
+// 계정·글을 직접 지운 뒤: 서버 저장본도 바로 같은 내용으로 맞추고(빈 상태여도), 서버 옛 목록을 다시 가져오지 않게 합니다.
+function syncNow() { importedTracked = true; forceSync = true; savedMeta = null; maybeSync(); }
 let lastClosedShown = 0, pauseDismissed = false, lastAutoResume = 0;
 let lastDataSig = "", lastStatusSig = "", lastLoginSig = "";
 async function refresh() {
@@ -136,6 +140,8 @@ async function refresh() {
     } else if (!pauseDismissed) $("pausedModal").hidden = false;
   } else { pauseDismissed = false; $("pausedModal").hidden = true; }
   if (!connected) { setConn(true); lastDataSig = ""; lastStatusSig = ""; lastLoginSig = ""; }
+  // 수집이 끝나는 순간, 프로필 사진도 함께 최신화합니다.
+  { const nowRun = !!(checkStatus && checkStatus.running); if (prevRunning && !nowRun) setTimeout(() => refreshPics().catch(() => {}), 1500); prevRunning = nowRun; }
   // 웹을 처음 열 때의 로그인 확인은 3개 매체의 메인 화면을 백그라운드 탭으로 잠깐 열었다 닫습니다.
   // 30분 안에 확인한 적이 있으면 건너뛰어, 새로고침할 때마다 탭이 떴다 사라지지 않게 합니다.
   if (!loginAsked) {
@@ -155,6 +161,7 @@ async function refresh() {
   if (dataSig !== lastDataSig && !updating) { lastDataSig = dataSig; lastStatusSig = statusSig; firstDrawn = true; keepView(renderAll); }
   else if (statusSig !== lastStatusSig) { lastStatusSig = statusSig; renderTracked(); }
   if (loginSig !== lastLoginSig) { lastLoginSig = loginSig; renderLogin(); }
+  renderWork();
   if (!updating) maybeSync(); // 저장도 업데이트가 끝난 뒤에
   autoTick();
 }

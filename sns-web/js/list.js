@@ -378,7 +378,12 @@ function renderList() {
     }
     if (page === "fav") {
       rows.splice(0, rows.length, ...rows.filter((r) => favs.has(r.name)));
-      if (!rows.length) { g.appendChild(el("p", { class: "hint", text: "즐겨찾기한 사람이 없습니다. 홈의 사람 이름 옆 ☆를 눌러 추가하세요." })); $("empty").hidden = true; return; }
+      if (!rows.length) {
+        g.appendChild(el("p", { class: "hint", text: "즐겨찾기한 사람이 없습니다. 홈의 사람 이름 옆 ☆를 눌러 추가하세요." })); $("empty").hidden = true;
+        // 오른쪽 사람 목록 카드도 같은 자리에 비어 있는 채로 보여줍니다(즐겨찾기가 생기면 여기에 뜸)
+        if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 사람" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
+        return;
+      }
     }
     if (personFocus && !rows.some((r) => r.name === personFocus)) personFocus = "";
     const bar = el("div", { class: "pbar" });
@@ -395,7 +400,7 @@ function renderList() {
       MEDIA.forEach((k) => {
         const part = r.list.filter((it) => it.source === k);
         if (!part.length) return;
-        const head = el("div", { class: "sec-head" }, [srcIcon(k), el("span", { class: "n", text: part.length + "건" })]);
+        const head = el("div", { class: "sec-head", title: "여기서 휠을 돌리면 옆으로 넘어갑니다" }, [srcIcon(k), el("span", { class: "slabel", text: SRC_LABELS[k] }), el("span", { class: "n", text: part.length + "건" })]);
         if (onMore && part.length > limit) {
           const more = el("button", { type: "button", text: "전체 보기" });
           more.addEventListener("click", () => onMore(k));
@@ -405,7 +410,7 @@ function renderList() {
         fillRow(grid, part.slice(0, limit));
         enableDrag(grid);
         const full = !has(PARTNER[k]); // 짝(영상↔게시물, X↔인스타)이 없으면 한 줄을 씁니다
-        box.appendChild(el("div", { class: "sec" + (full ? " full" : "") }, [head, grid]));
+        box.appendChild(el("div", { class: "sec" + (full ? " full" : ""), "data-plat": tabOf(k) }, [head, grid]));
       });
       if (!box.children.length) box.appendChild(el("p", { class: "hint", text: "이 기간에 수집된 글이 없습니다." }));
       return box;
@@ -421,7 +426,7 @@ function renderList() {
         body.appendChild(grid);
       } else {
         body.appendChild(el("section", { class: "sec" }, [
-          el("div", { class: "sec-head" }, [personAvatar(r), el("h3", { text: r.name }), favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + [...r.plats].map((p) => PLATFORM[p]).join("·") })]),
+          el("div", { class: "sec-head" }, [personAvatar(r), el("h3", { text: r.name }), favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + platOrder([...r.plats]).map((p) => PLATFORM[p]).join("·") })]),
           mediaRows(r, 30, (k) => { personPlat = k; renderList(); }),
         ]));
       }
@@ -432,7 +437,7 @@ function renderList() {
         const go = () => { personFocus = r.name; personPlat = ""; renderList(); };
         nameBtn.addEventListener("click", go);
         nameBtn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
-        const head = el("div", { class: "sec-head" }, [personAvatar(r), nameBtn, favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + [...r.plats].map((p) => PLATFORM[p]).join("·") })]);
+        const head = el("div", { class: "sec-head" }, [personAvatar(r), nameBtn, favStar(r.name), el("span", { class: "n", text: r.list.length + "건 · " + platOrder([...r.plats]).map((p) => PLATFORM[p]).join("·") })]);
         body.appendChild(el("section", { class: "sec" }, [head, mediaRows(r, 20, null)]));
       });
     }
@@ -478,7 +483,7 @@ function renderList() {
     }
     // 특정 매체 탭에서는 그 매체에 글이 없는 계정·묶음 줄은 숨깁니다.
     (activeTab === "all" ? rows : rows.filter((r) => r.list.length)).forEach((r) => {
-      const head = el("div", { class: "sec-head" }, [el("h3", { text: r.name }), el("span", { class: "n", text: r.list.length + "건" + (r.plats.length ? " · " + [...new Set(r.plats)].join("·") : "") })]);
+      const head = el("div", { class: "sec-head" }, [...(r.ids.size ? [personAvatar(r)] : []), el("h3", { text: r.name }), el("span", { class: "n", text: r.list.length + "건" + (r.plats.length ? " · " + platOrder([...new Set(r.plats)].map((n) => Object.keys(PLATFORM).find((k) => PLATFORM[k] === n) || n)).map((k) => PLATFORM[k] || k).join("·") : "") })]);
       if (r.list.length > 30) {
         const more = el("button", { type: "button", text: "전체 보기" });
         more.addEventListener("click", () => { groupFocus = r.name; renderList(); });
@@ -507,7 +512,7 @@ function renderList() {
     Object.keys(SRC_LABELS).filter((k) => activeTab === "all" || (tabOf(k) === activeTab && (ytMode === "both" || k === "youtube-" + ytMode))).forEach((k) => {
       const part = list.filter((it) => it.source === k);
       if (!part.length) return;
-      const head = el("div", { class: "sec-head" }, [srcIcon(k), el("span", { class: "n", text: part.length + "건" })]);
+      const head = el("div", { class: "sec-head" }, [srcIcon(k), el("span", { class: "slabel", text: SRC_LABELS[k] }), el("span", { class: "n", text: part.length + "건" })]);
       if (part.length > lim && activeTab === "all") {
         const more = el("button", { type: "button", text: "전체 보기" });
         more.addEventListener("click", () => { activeTab = tabOf(k); renderList(); });
@@ -517,7 +522,7 @@ function renderList() {
       fillRow(grid, part.slice(0, lim));
       enableDrag(grid);
       const full = activeTab === "youtube" || !list.some((it) => it.source === PARTNER[k]);
-      g.appendChild(el("section", { class: "sec" + (full ? " full" : "") }, [head, grid]));
+      g.appendChild(el("section", { class: "sec" + (full ? " full" : ""), "data-plat": tabOf(k) }, [head, grid]));
     });
   } else {
     g.className = "cards";
@@ -550,6 +555,7 @@ function renderTracked() {
     bar.appendChild(el("span", { class: "selchip" }, [el("span", { text: nm }), x]));
   });
   $("selClear").hidden = !selIds.length;
+  $("selAll").hidden = !tracked.length || selIds.length === tracked.length;
   // 한 개만 골랐다면 그 계정의 현재 기간을 기간 선택에 보여줍니다.
   if (document.activeElement !== $("dDays")) { const cur = selIds.length === 1 ? tracked.find((t) => t.id === selIds[0]) : null; $("dDays").value = String((cur && cur.days) || 0); }
   periodDays = winDays;
@@ -561,7 +567,74 @@ function renderSettings() {
 }
 function renderAll() {
   renderSettings(); renderTracked(); renderList();
-  updateConnText();
+  updateConnText(); renderWork();
 }
 function showErr(e) { const p = $("addError"); p.textContent = e.message; p.hidden = false; }
 
+
+/* 오른쪽 아래 "현재 작업" 카드: 수집 상태·진행·마지막/다음 확인·글/계정 수·매체 로그인 상태를 한눈에 보여줍니다. */
+function renderWork() {
+  const w = $("workCard");
+  if (!w) return;
+  w.hidden = false;
+  w.textContent = "";
+  const st = checkStatus || {};
+  let state = "idle", label = "대기 중";
+  if (!connected) { state = "off"; label = "확장 연결 안 됨"; }
+  else if (st.running && st.paused) { state = "pause"; label = "일시정지"; }
+  else if (st.running) { state = "run"; label = "수집 중"; }
+  const head = el("div", { class: "wk-head" }, [el("span", { class: "wk-dot " + state }), el("b", { text: "현재 작업" }), el("span", { class: "wk-state", text: label })]);
+  w.appendChild(head);
+  // 진행 상황: "확인 중: 유튜브 @계정 (3/10)" 형태면 진행 막대를 함께 보여줍니다.
+  const msg = connected ? (st.message || "") : "크롬 확장을 연결하면 수집 상태가 여기에 보입니다.";
+  const m = /\((\d+)\/(\d+)\)/.exec(msg);
+  if (st.running && m) {
+    const pct = Math.round((Number(m[1]) / Math.max(1, Number(m[2]))) * 100);
+    w.appendChild(el("div", { class: "wk-bar" }, [el("i", { style: "width:" + pct + "%" })]));
+  }
+  w.appendChild(el("p", { class: "wk-msg", text: msg || (st.lastRun ? "마지막 확인이 끝났습니다." : "아직 확인한 적이 없습니다.") }));
+  const rows = [];
+  if (connected) {
+    if (st.lastRun) rows.push(["마지막 확인", relative(st.lastRun)]);
+    if (!st.running && st.lastRun) {
+      const left = Math.max(0, Math.round((st.lastRun + 3600000 - Date.now()) / 60000));
+      rows.push(["다음 자동 확인", left <= 0 ? "곧" : left + "분 후"]);
+    }
+    rows.push(["수집한 글", items.length + "건"]);
+    rows.push(["추적 계정", tracked.length + "개"]);
+  }
+  if (rows.length) w.appendChild(el("dl", { class: "wk-list" }, rows.flatMap(([k, v]) => [el("dt", { text: k }), el("dd", { text: v })])));
+  for (const id of ["infoCard", "infoCard2"]) {
+    const info = $(id);
+    if (info) { info.textContent = ""; info.append(el("a", { class: "gh", href: TEAM_GITHUB, target: "_blank", rel: "noopener noreferrer", text: "Github - " + TEAM_NAME }), el("span", { class: "ver", text: "Web Version " + WEB_VERSION })); }
+  }
+  placeWork();
+}
+function placeWork() { const w = $("workCard"); if (w) w.style.top = ""; }
+setInterval(() => { try { renderWork(); } catch (e) {} }, 15000);
+
+/* 프로필 사진 최신화: '최신화'(수집)가 끝난 뒤, 사진이 없거나 3일 넘은 계정부터 한 번에 최대 3개씩 사진을 다시 가져옵니다. */
+let picAt = {}, picBusy = false;
+try { picAt = JSON.parse(localStorage.getItem("snsPicAt") || "{}") || {}; } catch (e) {}
+const savePicAt = () => { try { localStorage.setItem("snsPicAt", JSON.stringify(picAt)); } catch (e) {} };
+async function refreshPics(max = 3) {
+  if (picBusy || !connected) return;
+  picBusy = true;
+  try {
+    const now = Date.now();
+    const due = tracked
+      .filter((t) => t.kind !== "feed" && (t.handle || t.channelId))
+      .filter((t) => !picMap[t.id] ? now - (picAt[t.id] || 0) > 6 * 3600000 : now - (picAt[t.id] || 0) > 3 * 86400000)
+      .sort((a, b) => (picAt[a.id] || 0) - (picAt[b.id] || 0))
+      .slice(0, max);
+    for (const t of due) {
+      if (checkStatus && checkStatus.running) break; // 수집이 다시 시작되면 멈춥니다
+      picAt[t.id] = Date.now(); savePicAt(); // 실패해도 당분간 다시 시도하지 않게 먼저 기록
+      let res = [];
+      try { res = await call("searchAccount", { platform: t.platform, q: t.handle || t.channelId }); } catch (e) { continue; }
+      const h = String(t.handle || "").replace(/^@/, "").toLowerCase();
+      const hit = (res || []).find((r) => (h && String(r.handle || "").replace(/^@/, "").toLowerCase() === h) || (t.channelId && r.channelId === t.channelId));
+      if (hit && hit.avatar && (await storePic(t.id, hit.avatar))) { renderList(); }
+    }
+  } finally { picBusy = false; }
+}

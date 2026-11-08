@@ -1,28 +1,76 @@
-/* 카드 줄 위에서 마우스 휠을 돌리면 그 줄이 부드럽게 좌우로 움직입니다(끝에 닿으면 페이지가 위아래로 움직임). */
+/* 데스크톱: 카드 줄 위에서 휠을 돌리면 그 줄이 좌우로, 스크롤바 칸 위에서 돌리면 화면이 세로로 움직입니다(글 영역 자체의 세로 휠 스크롤은 막음) */
 const wheelAnim = new WeakMap();
+// 스크롤바 휠 이동을 부드럽게(목표 위치로 조금씩 따라가기)
+const vAnim = { el: null, target: 0, raf: 0 };
+function vScroll(el, d) {
+  if (vAnim.el !== el || !vAnim.raf) { vAnim.el = el; vAnim.target = el.scrollTop; }
+  vAnim.target = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, vAnim.target + d));
+  if (vAnim.raf) return;
+  const step = () => {
+    const diff = vAnim.target - el.scrollTop;
+    if (Math.abs(diff) < 0.5) { el.scrollTop = vAnim.target; vAnim.raf = 0; return; }
+    el.scrollTop += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.18);
+    vAnim.raf = requestAnimationFrame(step);
+  };
+  vAnim.raf = requestAnimationFrame(step);
+}
 document.addEventListener("wheel", (ev) => {
-  const row = ev.target.closest && ev.target.closest(".row-cards");
-  if (!row || ev.ctrlKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
-  const max = row.scrollWidth - row.clientWidth;
-  if (max <= 0) return; // 넘길 글이 없는 줄 위에서는 평소처럼 페이지가 스크롤됩니다
+  if (ev.ctrlKey || window.innerWidth < 861 || !ev.target.closest) return;
   const dy = ev.deltaMode === 1 ? ev.deltaY * 40 : ev.deltaY;
+  // 스크롤바 칸 위에서는 휠이 글 영역(또는 설정·추적 화면)을 세로로 움직입니다
+  if (ev.target.closest("#vbar")) {
+    const el = ["setPanel", "trackPanel", "grid"].map((i) => document.getElementById(i)).find((e) => e && !e.hidden && e.offsetParent !== null);
+    if (el) {
+      ev.preventDefault();
+      // 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동
+      const vb = document.getElementById("vbar"), room = vb.clientHeight - 12 - Math.min(120, vb.clientHeight - 12), max = el.scrollHeight - el.clientHeight;
+      vScroll(el, room > 0 ? dy * max / room : dy);
+    }
+    return;
+  }
+  // 글 영역에서는 세로 휠 스크롤을 막고, 카드 줄 위에서는 그 줄을 좌우로 움직입니다
+  if (!ev.target.closest("#grid") || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
+  ev.preventDefault();
+  const row = ev.target.closest(".row-cards");
+  if (!row) return;
+  const max = row.scrollWidth - row.clientWidth;
+  if (max <= 0) return;
   let st = wheelAnim.get(row);
   const cur = st && st.raf ? st.target : row.scrollLeft;
   if ((cur <= 0 && dy < 0) || (cur >= max - 1 && dy > 0)) return;
-  ev.preventDefault();
   if (!st) { st = { target: row.scrollLeft, raf: 0 }; wheelAnim.set(row, st); }
   if (!st.raf) st.target = row.scrollLeft;
-  st.target = Math.max(0, Math.min(max, st.target + dy));
+  // 휠 한 번 = 카드 한 장(폭+간격)씩, 부드럽게 이동
+  const kid = Array.from(row.children).find((c) => c.offsetWidth);
+  const unit = kid ? kid.offsetWidth + 4 : 240;
+  const now = Date.now();
+  if (st.last && now - st.last < 60) { return; } // 트랙패드 연속 이벤트는 한 번으로 묶기
+  st.last = now;
+  const base = st.raf ? st.target : Math.round(row.scrollLeft / unit) * unit;
+  st.target = Math.max(0, Math.min(max, base + (dy > 0 ? unit : -unit)));
+  wheelRun(row, st);
+}, { passive: false });
+
+// 가장 가까운 카드의 왼쪽 끝 위치(첫 카드가 놓인 자리를 0으로 본 스크롤 값)
+function snapPos(row, t) {
+  const kids = Array.from(row.children).filter((c) => c.offsetWidth);
+  if (!kids.length) return t;
+  const base = kids[0].offsetLeft;
+  let best = 0, d = Infinity;
+  kids.forEach((c) => { const p = c.offsetLeft - base; const dd = Math.abs(p - t); if (dd < d) { d = dd; best = p; } });
+  return best;
+}
+function wheelRun(row, st) {
   row.classList.add("wheeling");
   if (st.raf) return;
   const step = () => {
     const diff = st.target - row.scrollLeft;
     if (Math.abs(diff) < 1) { row.scrollLeft = st.target; st.raf = 0; row.classList.remove("wheeling"); return; }
-    row.scrollLeft += diff * 0.25;
+    row.scrollLeft += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.16);
     st.raf = requestAnimationFrame(step);
   };
   st.raf = requestAnimationFrame(step);
-}, { passive: false });
+}
 
 /* 이어보기: 마지막으로 확인한 글 바로 다음의 안 본 글(없으면 첫 안 본 글)로 이동합니다. */
 function pickResume(cards, dir) {
@@ -122,10 +170,12 @@ try { const t = localStorage.getItem("snsToken"); if (t) connect(t, false); } ca
 /* ---------- 통합 검색창 왼쪽: 검색할 매체 설정 버튼 ---------- */
 (function () {
   const ALL = ["youtube", "x", "instagram"], btn = $("sScope"), menu = $("sMenu"), icons = $("sScopeIcons");
+  // "전체" 아이콘: 왼쪽 위 로고(겹친 세 원)와 같은 그림
+  const allIcon = () => { const w = document.createElement("span"); w.className = "allico"; w.innerHTML = '<svg viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="28" fill="#2a2928"/><circle cx="21" cy="23" r="9" fill="#fff" fill-opacity=".95"/><circle cx="35" cy="23" r="9" fill="#fff" fill-opacity=".6"/><circle cx="28" cy="35" r="9" fill="#fff" fill-opacity=".35"/></svg>'; return w; };
   const save = () => { try { localStorage.setItem("snsSearchPlats", JSON.stringify(searchPlats)); } catch (e) {} };
   const render = () => {
     icons.textContent = "";
-    if (searchPlats.length === ALL.length) icons.appendChild(el("span", { class: "si" }, [el("img", { src: "img/all.png", alt: "" })])); // 전체: 임시 이미지
+    if (searchPlats.length === ALL.length) icons.appendChild(el("span", { class: "si" }, [allIcon()]));
     else ALL.filter((p) => searchPlats.includes(p)).forEach((p) => icons.appendChild(el("span", { class: "si" }, [pIcon(p)])));
     btn.title = "검색할 매체: " + (searchPlats.length === ALL.length ? "전체" : searchPlats.map((p) => PLATFORM[p]).join(", "));
     menu.textContent = "";
@@ -134,7 +184,7 @@ try { const t = localStorage.getItem("snsToken"); if (t) connect(t, false); } ca
     const opts = [["all", "전체"], ...ALL.map((p) => [p, PLATFORM[p]])];
     opts.forEach(([k, label]) => {
       const on = k === "all" ? isAll : !isAll && searchPlats[0] === k;
-      const glyph = k === "all" ? el("span", { class: "si lg" }, [el("img", { src: "img/all.png", alt: "" })]) : el("span", { class: "si lg" }, [pIcon(k)]);
+      const glyph = k === "all" ? el("span", { class: "si lg" }, [allIcon()]) : el("span", { class: "si lg" }, [pIcon(k)]);
       const b = el("button", { type: "button", class: "sopt" + (on ? " on" : ""), role: "menuitemradio", "aria-checked": String(on), "aria-label": label, title: label }, [glyph]);
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -205,14 +255,71 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
     const bento = root.getAttribute("data-design") === "bento";
     const dest = $(bento ? "setBody" : "acctMenu");
     ids.forEach((i) => dest.appendChild($(i)));
-    if (!bento && page === "settings") { page = "home"; applyPage(); }
+    if (!bento) { $("setPanel").hidden = true; $("setBack").hidden = true; }
     $("acctMenu").hidden = true;
   };
   // 벤토에서는 프로필 버튼이 설정 화면으로 이동시킵니다(클래식은 기존 드롭다운 그대로).
   $("connAcct").addEventListener("click", (e) => {
     if (root.getAttribute("data-design") !== "bento") return;
     e.stopImmediatePropagation(); e.preventDefault();
-    page = "settings"; applyPage(); window.scrollTo(0, 0);
+    setModal(!$("setPanel").hidden ? false : true);
   }, true);
+  function setModal(open) {
+    $("setPanel").hidden = !open; $("setBack").hidden = !open;
+    document.body.classList.toggle("setOpen", open); $("connAcct").classList.toggle("on", open);
+  }
+  $("setBack").addEventListener("click", () => setModal(false));
+  $("setClose").addEventListener("click", () => setModal(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("setPanel").hidden) setModal(false); });
+  ["navHome", "navFav", "navManage"].forEach((i) => $(i).addEventListener("click", () => setModal(false)));
   place();
+})();
+
+// 글 영역(또는 설정·추적 화면)과 오른쪽 열 사이 빈틈에 세로 스크롤바를 그립니다.
+(() => {
+  const bar = document.getElementById("vbar");
+  if (!bar) return;
+  document.body.appendChild(bar); // 다른 화면(설정·추적)에서 부모가 숨겨져도 보이도록 body 바로 아래로 옮깁니다
+  const thumb = bar.firstElementChild;
+  let drag = null;
+  const THUMB = 120;
+  const PAD = 6; // 손잡이가 바탕 박스 끝 밖으로 튀어나오지 않게 안쪽 여백
+  const target = () => ["setPanel", "trackPanel", "grid"].map((i) => document.getElementById(i)).find((e) => e && !e.hidden && e.offsetParent !== null);
+  function update() {
+    const el = target();
+    if (!el || window.innerWidth < 861) { bar.hidden = true; return; }
+    bar.classList.toggle("idle", el.scrollHeight <= el.clientHeight + 1); // 스크롤할 내용이 없어도 바탕은 어느 화면에서나 보입니다
+    const r = el.getBoundingClientRect();
+    const side = document.getElementById("workCard") || document.getElementById("tabs");
+    const sr = side && side.getBoundingClientRect();
+    const hasGap = sr && sr.width > 0 && sr.left > r.right; // 오른쪽 열이 없는 화면(설정·추적)은 박스 안쪽 오른쪽 끝에 둡니다
+    const gap = hasGap ? sr.left - r.right : 0;
+    bar.hidden = false;
+    bar.classList.toggle("inpanel", !hasGap);
+    bar.style.left = hasGap ? r.right + (gap - 36) / 2 + "px" : r.right - 36 - 8 + "px";
+    bar.style.top = r.top + "px";
+    bar.style.height = Math.max(40, r.height) + "px";
+    const th = Math.min(THUMB, bar.clientHeight - 2 * PAD); // 내용 길이와 상관없이 고정 길이
+    const room = bar.clientHeight - 2 * PAD - th;
+    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    thumb.style.height = th + "px";
+    thumb.style.transform = `translateY(${max > 0 ? PAD + room * el.scrollTop / max : PAD}px)`;
+  }
+  const scrollTo = (y) => { const el = target(); if (!el) return; const th = thumb.offsetHeight, room = bar.clientHeight - 2 * PAD - th, max = el.scrollHeight - el.clientHeight; el.scrollTop = room > 0 ? Math.max(0, Math.min(1, (y - PAD) / room)) * max : 0; };
+  thumb.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); thumb.setPointerCapture(e.pointerId); drag = e.clientY - thumb.getBoundingClientRect().top; bar.classList.add("drag"); });
+  thumb.addEventListener("pointermove", (e) => { if (drag !== null) scrollTo(e.clientY - bar.getBoundingClientRect().top - drag); });
+  const end = () => { drag = null; bar.classList.remove("drag"); };
+  thumb.addEventListener("pointerup", end); thumb.addEventListener("pointercancel", end);
+  bar.addEventListener("pointerdown", (e) => { if (e.target === bar) scrollTo(e.clientY - bar.getBoundingClientRect().top - thumb.offsetHeight / 2); });
+  ["grid", "setPanel", "trackPanel"].forEach((i) => { const e = document.getElementById(i); if (e) e.addEventListener("scroll", update, { passive: true }); });
+  window.addEventListener("resize", update);
+  new MutationObserver(() => requestAnimationFrame(update)).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "style", "class"] });
+  setInterval(update, 800);
+  update();
+})();
+
+// 카드 줄: 왼쪽으로 넘겨진 상태면 왼쪽 끝에도 약한 흐림(.sl)
+(function () {
+  const mark = (el) => { if (el && el.classList && el.classList.contains("row-cards")) el.classList.toggle("sl", el.scrollLeft > 2); };
+  document.addEventListener("scroll", (e) => mark(e.target), true);
 })();

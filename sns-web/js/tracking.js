@@ -75,6 +75,7 @@ function parseAccount(platformHint, raw) {
 $("q").addEventListener("input", renderList);
 function needPick() { const b = $("selBar"); b.classList.add("need"); setTimeout(() => b.classList.remove("need"), 900); }
 $("selClear").addEventListener("click", () => { selIds = []; renderTracked(); });
+$("selAll").addEventListener("click", () => { selIds = tracked.map((t) => t.id); renderTracked(); });
 // 고른 계정 전부에 적용합니다.
 async function applyToSelected(change) {
   if (!selIds.length) { needPick(); return; }
@@ -119,6 +120,7 @@ $("rmOk").addEventListener("click", async () => {
   renderTracked(); renderTabs(); renderList();
   await saveTracked().catch(showErr);
   await call("removeVia", { ids }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
+  syncNow();
 });
 // 추적 계정 저장: 저장하는 동안(그리고 직후 몇 초)에는 주기적 새로고침이 화면 목록을 옛 목록으로 되돌리지 않게 합니다.
 async function saveTracked() {
@@ -230,14 +232,22 @@ function fillResults(box, platform, list) {
     box.appendChild(el("div", { class: "res" }, [thumb, el("div", { class: "t" }, [el("b", { text: (() => { const n = (r.name || "").replace(/\s+/g, " ").trim(), h = Math.floor(n.length / 2); return n.length > 1 && n.length % 2 === 1 && n[h] === " " && n.slice(0, h) === n.slice(h + 1) ? n.slice(0, h) : n || "@" + (r.handle || r.channelId); })() }), el("span", { text: [r.handle ? "@" + r.handle : "", r.desc && r.desc.replace(/^@/, "").toLowerCase() !== String(r.handle || "").toLowerCase() ? r.desc : ""].filter(Boolean).join(" · ") })]), add]));
   });
 }
+let searchWaiting = false;
 $("searchBtn").addEventListener("click", async () => {
   const q = $("thandle").value.trim();
   const box = $("searchResults"), err = $("addError");
   err.hidden = true;
   if (!q) { err.textContent = "검색할 이름을 입력하세요."; err.hidden = false; return; }
-  // 수집이 진행 중이면 이름 검색 창과 수집창이 서로 가려 수집이 일시정지되므로, 끝난 뒤에 검색하게 합니다.
-  if (checkStatus && checkStatus.running) { err.textContent = "가져오는 중에는 이름 검색을 할 수 없습니다. 수집이 끝난 뒤 다시 눌러 주세요."; err.hidden = false; return; }
   const platform = $("tplatform").value;
+  // 수집이 진행 중이면 검색 창과 수집창이 서로 가려 수집이 멈추므로, 끝나는 대로 자동으로 검색합니다(그동안 다른 계정도 계속 추가할 수 있습니다).
+  if (checkStatus && checkStatus.running) {
+    if (searchWaiting) return;
+    searchWaiting = true;
+    $("searchBtn").disabled = true;
+    err.textContent = "지금 가져오는 중이라 끝나면 자동으로 \"" + q + "\"를 검색합니다. 그동안 지금 보이는 결과에서 다른 계정을 계속 추가해도 됩니다."; err.hidden = false;
+    while (checkStatus && checkStatus.running) await new Promise((r) => setTimeout(r, 1000));
+    searchWaiting = false; err.hidden = true;
+  }
   box.hidden = false; box.textContent = "";
   box.appendChild(el("p", { class: "hint", text: "검색 중… 크롬에서 탭이 잠깐 열렸다 닫힙니다." }));
   $("searchBtn").disabled = true;
@@ -281,7 +291,9 @@ $("clear").addEventListener("click", async (e) => {
   if (!clearArmed) { $("clear").textContent = "한 번 더 누르면 삭제됩니다"; clearArmed = setTimeout(() => { clearArmed = null; $("clear").textContent = "수집한 글 모두 삭제"; }, 4000); return; }
   clearTimeout(clearArmed); clearArmed = null; $("clear").textContent = "수집한 글 모두 삭제";
   savedItems = []; // 서버 저장본도 함께 비웁니다(다음 저장 때 반영)
+  items = [];
   await call("clearItems").catch(showErr);
+  syncNow(); renderList();
   $("acctMenu").hidden = true; $("connAcct").setAttribute("aria-expanded", "false");
 });
 
@@ -308,4 +320,58 @@ $("clear").addEventListener("click", async (e) => {
 (function () {
   $("pmResume").addEventListener("click", () => { pauseDismissed = true; $("pausedModal").hidden = true; call("resumeCheck").catch(showErr); });
   $("pmClose").addEventListener("click", () => { pauseDismissed = true; $("pausedModal").hidden = true; call("cancelCheck").catch(showErr); });
+})();
+
+/* 묶음 이름 입력: 이미 만들어 둔 묶음을 보여주고, 입력하면 연관 묶음으로 걸러서 고를 수 있게 합니다 */
+(function () {
+  function groupNames() {
+    const m = new Map();
+    tracked.forEach((t) => { if (t.group) m.set(t.group, (m.get(t.group) || 0) + 1); });
+    return [...m.entries()].map(([name, n]) => ({ name, n }));
+  }
+  function attach(input) {
+    if (!input) return;
+    const wrap = input.parentElement;
+    wrap.style.position = "relative";
+    const box = document.createElement("div");
+    box.className = "gsuggest";
+    box.hidden = true;
+    wrap.appendChild(box);
+    let idx = -1;
+    const items = () => Array.from(box.querySelectorAll("button"));
+    const hide = () => { box.hidden = true; idx = -1; };
+    const pick = (name) => { input.value = name; hide(); input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); };
+    const show = () => {
+      const q = input.value.trim().toLowerCase();
+      const list = groupNames().filter((g) => !q || g.name.toLowerCase().includes(q))
+        .sort((a, b) => (b.name.toLowerCase().startsWith(q) ? 1 : 0) - (a.name.toLowerCase().startsWith(q) ? 1 : 0) || a.name.localeCompare(b.name, "ko"));
+      box.textContent = "";
+      if (!list.length) { hide(); return; }
+      list.slice(0, 8).forEach((g) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        const nm = document.createElement("span"); nm.textContent = g.name;
+        const n = document.createElement("em"); n.textContent = g.n + "개 계정";
+        b.append(nm, n);
+        b.addEventListener("mousedown", (e) => { e.preventDefault(); pick(g.name); });
+        box.appendChild(b);
+      });
+      idx = -1; box.hidden = false;
+    };
+    input.addEventListener("focus", show);
+    input.addEventListener("input", show);
+    input.addEventListener("blur", () => setTimeout(hide, 120));
+    input.addEventListener("keydown", (e) => {
+      const els = items();
+      if (box.hidden || !els.length) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        idx = (idx + (e.key === "ArrowDown" ? 1 : -1) + els.length) % els.length;
+        els.forEach((b, i) => b.classList.toggle("on", i === idx));
+      } else if (e.key === "Enter" && idx >= 0) { e.preventDefault(); pick(els[idx].firstChild.textContent); }
+      else if (e.key === "Escape") hide();
+    });
+  }
+  attach($("gName"));
+  attach($("tgroup"));
 })();

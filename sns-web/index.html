@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="bento.css">
 
 <header>
+  <div id="infoCard2" class="infocard info2"></div>
   <div class="toolbar">
     <div id="loginBar" class="loginbar" hidden></div>
     <button id="checkNow" class="primary refreshbtn" type="button" aria-label="지금 최신화" title="지금 최신화" hidden><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.6L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M4 13a8 8 0 0 0 14.3 4.6L20 15.5"/><path d="M20 20v-4.5h-4.5"/></svg><span id="dot" class="dot"></span></button>
@@ -147,7 +148,9 @@
       </div>
     </section>
 
-    <section class="panel" id="setPanel" hidden>
+    <div id="setBack" hidden></div>
+    <section class="panel" id="setPanel" hidden role="dialog" aria-modal="true" aria-label="설정">
+      <button type="button" class="setx" id="setClose" aria-label="닫기">×</button>
       <h2>설정</h2>
       <div id="setBody" class="setbody"></div>
     </section>
@@ -169,18 +172,20 @@
       <p id="addError" class="error" hidden></p>
       <div id="tracked" class="chips"></div>
       <div id="selBar" class="selbar" aria-label="선택한 계정" aria-live="polite"></div>
-      <div class="row manage-pick"><button id="selClear" type="button" hidden>선택 해제</button></div>
+      <div id="manageBottom" class="manage-bottom">
+      <form id="daysForm" class="row">
+        <select id="dDays" aria-label="계정별 가져올 기간"><option value="0">기본(맨 위 기간)</option><option value="7">7일</option><option value="14">14일</option><option value="30">30일</option><option value="60">60일</option></select>
+        <button type="submit">기간 적용</button>
+        <button id="selRemove" type="button" class="danger">제거</button>
+        <button id="selAll" type="button">전체 선택</button>
+        <button id="selClear" type="button" hidden>선택 해제</button>
+      </form>
       <form id="groupForm" class="row">
         <input id="gName" type="text" maxlength="30" placeholder="묶음 이름 (비우면 해제)" aria-label="묶음 이름" autocomplete="off">
         <button type="submit">묶기</button>
         <button id="gClear" type="button" title="선택한 계정의 묶음을 없앱니다">묶음 해제</button>
       </form>
-      <form id="daysForm" class="row">
-        <select id="dDays" aria-label="계정별 가져올 기간"><option value="0">기본(맨 위 기간)</option><option value="7">7일</option><option value="14">14일</option><option value="30">30일</option><option value="60">60일</option></select>
-        <button type="submit">기간 적용</button>
-        <button id="selRemove" type="button" class="danger">제거</button>
-      </form>
-      <p class="hint">같은 사람·브랜드의 유튜브·X·인스타그램 계정에 같은 묶음 이름을 주면 각 매체 탭에서 한 줄로 모아 보여줍니다.</p>
+      </div>
       </div>
     </section>
 
@@ -189,7 +194,10 @@
   <main>
     <nav id="tabs" class="tabs" aria-label="출처"></nav>
     <div id="sidePeople" class="sidepeople" hidden></div>
+    <section id="workCard" class="workcard" aria-live="polite" hidden></section>
+    <div id="infoCard" class="infocard"></div>
     <div id="grid"></div>
+    <div id="vbar" hidden><i></i></div>
     <p id="empty">아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 60일)의 글이 여기에 모입니다.</p>
   </main>
 </div>

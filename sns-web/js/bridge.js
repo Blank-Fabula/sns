@@ -26,15 +26,13 @@ function call(op, payload, waitMs) {
 let page = "home";
 function applyPage() {
   if (!connected && page === "manage") page = "home";
-  const manage = connected && page === "manage", sett = page === "settings";
+  const manage = connected && page === "manage", sett = false;
   $("trackPanel").hidden = !manage;
-  $("setPanel").hidden = !sett;
   document.querySelector(".layout main").hidden = manage || sett;
   $("navManage").hidden = !connected;
   $("navHome").classList.toggle("on", !manage && !sett && page !== "fav");
   $("navFav").classList.toggle("on", page === "fav");
   $("navManage").classList.toggle("on", manage);
-  $("connAcct").classList.toggle("on", sett);
 }
 function setConn(ok) {
   connected = ok;
