@@ -1126,8 +1126,8 @@ html[data-design="bento"] #themeBtn{display:none !important}
 /* 설정/추적 화면에서도 팀 카드가 같은 자리(맨 위 줄)에 뜨게: 점 버튼 알약 왼쪽 */
 html[data-design="bento"] .infocard.info2{display:none}
 @media (min-width:861px){
-  html[data-design="bento"] body:has(#trackPanel:not([hidden])) .infocard.info2{display:flex;position:absolute;top:10px;right:250px;width:230px;grid-column:auto;grid-row:auto;margin:0;z-index:3}
-  html[data-design="bento"] body:has(#trackPanel:not([hidden])) header .sbox{width:calc(100% - 240px)}
+  html[data-design="bento"] body:has(#trackPanel:not([hidden])) .infocard.info2{display:flex;position:absolute;top:10px;right:10px;width:230px;grid-column:auto;grid-row:auto;margin:0;z-index:3}
+  html[data-design="bento"] body:has(#trackPanel:not([hidden])) header .toolbar{display:none !important}
 }
 
 /* 설정: 별도 화면이 아니라 모달로 */
