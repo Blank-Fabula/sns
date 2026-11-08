@@ -28,9 +28,49 @@ function pumpImg() {
       .finally(() => { imgActive--; pumpImg(); });
   }
 }
+
+// 카드는 폭 240px 안팎인데 원본 썸네일(특히 인스타그램)은 1000px 이상이라, 큰 채로 올려 두면 메모리·디코딩 부담으로 스크롤이 끊깁니다.
+// 한 번 받아서 폭 520px(2배 화면 대응)로 줄인 JPEG로 바꿔 쓰고, 같은 주소는 다시 받지 않습니다. 줄이기가 막히면(CORS 등) 원본을 그대로 씁니다.
+const smallCache = new Map(); // 원본 주소 -> 줄인 그림 주소
+const smallQueue = [];
+let smallActive = 0;
+function pumpSmall() {
+  while (smallActive < 3 && smallQueue.length) {
+    const { url, img } = smallQueue.shift();
+    if (smallCache.has(url)) { if (img.isConnected) img.src = smallCache.get(url); continue; }
+    smallActive++;
+    const done = () => { smallActive--; pumpSmall(); };
+    const direct = () => { if (img.isConnected) { img.addEventListener("error", () => img.remove(), { once: true }); img.src = url; } done(); };
+    const t = new Image();
+    t.crossOrigin = "anonymous"; t.referrerPolicy = "no-referrer"; t.decoding = "async";
+    t.onerror = direct;
+    t.onload = () => {
+      try {
+        const w = Math.min(520, t.naturalWidth || 520);
+        if (!t.naturalWidth || t.naturalWidth <= 560) { smallCache.set(url, url); if (img.isConnected) img.src = url; done(); return; } // 이미 작으면 그대로
+        const c = document.createElement("canvas");
+        c.width = w; c.height = Math.max(1, Math.round((t.naturalHeight * w) / t.naturalWidth));
+        c.getContext("2d").drawImage(t, 0, 0, c.width, c.height);
+        c.toBlob((b) => {
+          if (!b) { direct(); return; }
+          const u = URL.createObjectURL(b);
+          smallCache.set(url, u);
+          if (img.isConnected) img.src = u;
+          done();
+        }, "image/jpeg", 0.82);
+      } catch (e) { direct(); }
+    };
+    t.src = url;
+  }
+}
+function loadSmall(url, img) {
+  if (smallCache.has(url)) { img.src = smallCache.get(url); return; }
+  smallQueue.push({ url, img });
+  pumpSmall();
+}
 function loadImg(url, img) {
   // 일반 웹 주소(Vercel 등)에서는 이미지를 바로 불러옵니다. claude.ai 안에서만 확장을 거칩니다.
-  if (!window.claude) { if (/^https:\/\//.test(url || "")) { img.addEventListener("error", () => img.remove(), { once: true }); img.src = url; } else img.remove(); return; }
+  if (!window.claude) { if (/^https:\/\//.test(url || "")) loadSmall(url, img); else img.remove(); return; }
   if (!connected || !/^https:\/\//.test(url || "")) { img.remove(); return; }
   if (imgCache.has(url)) { const v = imgCache.get(url); v ? (img.src = v) : img.remove(); return; }
   imgQueue.push({ url, img });
