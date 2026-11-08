@@ -108,20 +108,20 @@ $("rmX").addEventListener("click", closeRm);
 $("rmCancel").addEventListener("click", closeRm);
 $("rmModal").addEventListener("click", (e) => { if (e.target === $("rmModal")) closeRm(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("rmModal").hidden) closeRm(); });
-$("rmOk").addEventListener("click", async () => {
-  closeRm();
-  const ids = selIds.slice(), set = new Set(ids);
+$("rmOk").addEventListener("click", async () => { closeRm(); await removeTrackedIds(selIds.slice()); });
+async function removeTrackedIds(ids) {
+  const set = new Set(ids);
   if (!ids.length) return;
   tracked = tracked.filter((x) => !set.has(x.id));
   items = items.filter((it) => !set.has(it.via)); // 이 계정으로 모은 글도 함께 지웁니다
   savedItems = savedItems.filter((it) => !set.has(it.via)); // 서버 저장본에서도 뺍니다
-  selIds = [];
+  selIds = selIds.filter((i) => !set.has(i));
   ids.forEach((i) => removedIds.add(i)); // 확장이 아직 옛 목록을 돌려줘도 다시 나타나지 않게 합니다
   renderTracked(); renderTabs(); renderList();
   await saveTracked().catch(showErr);
   await call("removeVia", { ids }).catch(() => {}); // 확장이 구버전이면 글은 남습니다
   syncNow();
-});
+}
 // 추적 계정 저장: 저장하는 동안(그리고 직후 몇 초)에는 주기적 새로고침이 화면 목록을 옛 목록으로 되돌리지 않게 합니다.
 async function saveTracked() {
   trackedHold = Date.now() + 8000;
@@ -219,7 +219,20 @@ function fillResults(box, platform, list) {
     const acc = { id: platform + ":" + key, platform, handle: r.handle || "" };
     if (r.channelId) acc.channelId = r.channelId;
     const add = el("button", { type: "button", text: "추가" });
-    add.addEventListener("click", async () => { const pk = await pickPeriod(); if (!pk) return; acc.days = pk.days; if (pk.group) acc.group = pk.group; add.disabled = true; if (await addAccount(acc)) { add.textContent = "추가됨"; if (r.avatar) storePic(acc.id, r.avatar).then((ok) => { if (ok) renderList(); }); } else add.disabled = false; });
+    // 이미 추적 중인 계정이면 "제거", 아니면 "추가"로 보여 줍니다(누를 때마다 바뀜).
+    let armed = 0;
+    const paint = () => { const on = tracked.some((t) => t.id === acc.id); add.textContent = on ? "제거" : "추가"; add.classList.toggle("rm", on); add.disabled = false; };
+    paint();
+    add.addEventListener("click", async () => {
+      if (tracked.some((t) => t.id === acc.id)) {
+        // 제거: 모아 둔 글도 함께 지워지므로 한 번 더 눌러야 제거합니다
+        if (!armed) { add.textContent = "정말 제거?"; armed = setTimeout(() => { armed = 0; paint(); }, 4000); return; }
+        clearTimeout(armed); armed = 0; add.disabled = true;
+        await removeTrackedIds([acc.id]); paint(); return;
+      }
+      const pk = await pickPeriod(); if (!pk) return; acc.days = pk.days; if (pk.group) acc.group = pk.group; add.disabled = true;
+      if (await addAccount(acc)) { paint(); if (r.avatar) storePic(acc.id, r.avatar).then((ok) => { if (ok) renderList(); }); } else paint();
+    });
     const initial = (r.name || r.handle || "?").trim().charAt(0).toUpperCase();
     const ph = (why) => el("span", { class: "ph", text: initial, title: why || "" });
     let thumb = ph("확장이 사진 주소를 읽지 못했습니다");

@@ -1170,9 +1170,18 @@ html[data-design="bento"][data-theme="dark"] .themeswitch{background:#1b1b1a !im
 
 /* 모든 사람 카드: 창이 충분히 높아 현재 작업 카드가 더 안 늘어날 때는, 남는 세로 공간을 모든 사람 카드가 채워 빈 여백이 없게 */
 @media (min-width:861px) and (min-height:980px){
-  html[data-design="bento"] .layout{grid-template-rows:auto minmax(272px,1fr) 222px !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))){grid-template-rows:auto minmax(272px,1fr) 222px !important}
   html[data-design="bento"] #sidePeople:not([hidden]){align-self:stretch !important;max-height:none !important}
 }
 
 /* 계정(매체) 보기: 계정 머리글과 글 카드 사이 여백 */
 html[data-design="bento"] #grid .sec > .sec-head{margin-bottom:12px !important}
+
+/* 검색 결과처럼 카드가 많이 나오는 격자: 높이가 고정된 칸 안에서 줄 높이가 눌려 얇은 띠가 되지 않게 */
+html[data-design="bento"] #grid.cards{grid-auto-rows:max-content;align-content:start}
+
+/* 검색 결과: 이미 추가한 계정은 '제거' 버튼 */
+html[data-design="bento"] .res button.rm{color:var(--danger)}
+
+/* 카드가 많아도 화면 밖 카드는 그리지 않게(렌더 부담 감소) */
+html[data-design="bento"] #grid.cards > .card{content-visibility:auto;contain-intrinsic-size:auto 250px}

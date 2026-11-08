@@ -155,6 +155,23 @@ document.addEventListener("keydown", (e) => {
 $("vWin").addEventListener("click", () => { openWindow(viewerUrl); });
 $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) closeViewer(); });
 
+
+// 카드가 많을 때(검색 결과 등) 한꺼번에 수백 장을 그리면 이미지·레이어가 과해 화면이 깨지며 멈출 수 있어, 48장씩 스크롤에 맞춰 이어서 그립니다.
+function appendProgressive(g, arr, step) {
+  step = step || 48;
+  let n = 0;
+  const sentinel = el("div", { style: "grid-column:1/-1;height:1px" });
+  const more = () => {
+    const end = Math.min(arr.length, n + step);
+    for (; n < end; n++) g.insertBefore(card(arr[n]), sentinel);
+    if (n >= arr.length) { io.disconnect(); sentinel.remove(); }
+  };
+  const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) more(); }, { rootMargin: "700px" });
+  g.appendChild(sentinel);
+  more();
+  if (n < arr.length) io.observe(sentinel);
+}
+
 function card(it) {
   const kids = [];
   if (it.thumb) {
@@ -483,7 +500,7 @@ function renderList() {
       const back = el("button", { type: "button", text: "← 묶음 목록으로" });
       back.addEventListener("click", () => { groupFocus = ""; renderList(); });
       g.appendChild(el("div", { class: "sec-head", style: "grid-column: 1 / -1" }, [back, el("h3", { text: focused.name }), el("span", { class: "n", text: focused.list.length + "건" })]));
-      focused.list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
+      appendProgressive(g, focused.list.slice(0, 300));
       $("empty").hidden = list.length > 0;
       return;
     }
@@ -532,7 +549,7 @@ function renderList() {
     });
   } else {
     g.className = "cards";
-    list.slice(0, 300).forEach((it) => g.appendChild(card(it)));
+    appendProgressive(g, list.slice(0, 300));
   }
   $("empty").hidden = list.length > 0;
   $("empty").textContent = connected ? "이 기간에 모은 글이 없습니다. 계정을 추가하고 '지금 최신화'를 눌러 보세요." : "아직 보여줄 글이 없습니다. 확장을 연결하고 계정을 추가하면 설정한 기간(최대 60일)의 글이 여기에 모입니다.";
