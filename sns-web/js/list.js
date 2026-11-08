@@ -645,18 +645,18 @@ function renderWork() {
 function placeWork() { const w = $("workCard"); if (w) w.style.top = ""; }
 setInterval(() => { try { renderWork(); } catch (e) {} }, 15000);
 
-/* 프로필 사진 최신화: '최신화'(수집)가 끝난 뒤, 사진이 없거나 3일 넘은 계정부터 한 번에 최대 3개씩 사진을 다시 가져옵니다. */
+/* 프로필 사진 최신화: '최신화'(수집)가 끝난 뒤, 사진이 없는 계정(5분 이상 지난 시도)이나 3일 넘은 계정부터 한 번에 최대 6개씩 사진을 다시 가져옵니다. */
 let picAt = {}, picBusy = false;
 try { picAt = JSON.parse(localStorage.getItem("snsPicAt") || "{}") || {}; } catch (e) {}
 const savePicAt = () => { try { localStorage.setItem("snsPicAt", JSON.stringify(picAt)); } catch (e) {} };
-async function refreshPics(max = 3) {
+async function refreshPics(max = 6) {
   if (picBusy || !connected) return;
   picBusy = true;
   try {
     const now = Date.now();
     const due = tracked
       .filter((t) => t.kind !== "feed" && (t.handle || t.channelId))
-      .filter((t) => !picMap[t.id] ? now - (picAt[t.id] || 0) > 6 * 3600000 : now - (picAt[t.id] || 0) > 3 * 86400000)
+      .filter((t) => !picMap[t.id] ? now - (picAt[t.id] || 0) > 5 * 60000 : now - (picAt[t.id] || 0) > 3 * 86400000)
       .sort((a, b) => (picAt[a.id] || 0) - (picAt[b.id] || 0))
       .slice(0, max);
     for (const t of due) {

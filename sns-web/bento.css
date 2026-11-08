@@ -1209,3 +1209,16 @@ html[data-design="bento"] #grid .sec{box-shadow:0 2px 10px rgba(40,38,35,.06) !i
 html[data-design="bento"][data-theme="dark"] #grid .sec{box-shadow:0 2px 10px rgba(0,0,0,.3) !important}
 html[data-design="bento"] #grid .card img{content-visibility:auto}
 html[data-design="bento"] #grid .card,html[data-design="bento"] .media-grid .card{cursor:pointer}
+/* 뱃지 배경: 다크 모드에서는 어두운 색(앞서 흰색으로 고정돼 튀던 것 수정) */
+html[data-design="bento"][data-theme="dark"] .media-grid .card .badge{background:var(--soft) !important;color:var(--fg) !important}
+
+/* 섹션 안의 안쪽 .sec(줄 래퍼)는 배경·그림자·테두리를 칠하지 않습니다: 바깥 섹션 위에 한 번 더 겹쳐 칠해져 카드 모서리 바깥에 네모난 색 차이가 보이던 것 수정 */
+html[data-design="bento"] #grid .sec .sec{background:transparent !important;box-shadow:none !important;border-color:transparent !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important}
+
+/* 라이트 모드: 카드가 바탕과 거의 같은 흰색이라 구분이 안 되던 것 — 카드는 흰색 + 옅은 테두리·그림자, 섹션 바탕은 살짝 어둡게 */
+html[data-design="bento"]:not([data-theme="dark"]) #grid .sec{background:rgba(244,243,241,.75) !important}
+html[data-design="bento"]:not([data-theme="dark"]) #grid .sec .card{background:#fff !important;box-shadow:0 1px 3px rgba(40,38,35,.12),0 0 0 1px rgba(40,38,35,.06) !important}
+html[data-design="bento"]:not([data-theme="dark"]) #grid .sec .sec{background:transparent !important}
+
+/* 라이트 모드: 섹션 테두리를 조금 더 진하게 */
+html[data-design="bento"]:not([data-theme="dark"]) #grid > .sec,html[data-design="bento"]:not([data-theme="dark"]) #grid.sections > .sec,html[data-design="bento"]:not([data-theme="dark"]) #grid > .sections > .sec{border:1px solid rgba(40,38,35,.16) !important}
