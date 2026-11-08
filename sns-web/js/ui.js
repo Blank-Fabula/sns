@@ -41,13 +41,13 @@ document.addEventListener("wheel", (ev) => {
   if (!st) { st = { target: row.scrollLeft, raf: 0 }; wheelAnim.set(row, st); }
   if (!st.raf) st.target = row.scrollLeft;
   // 휠 한 번 = 카드 한 장(폭+간격)씩, 부드럽게 이동
-  const kid = Array.from(row.children).find((c) => c.offsetWidth);
-  const unit = kid ? kid.offsetWidth + 4 : 240;
+  const kids = Array.from(row.children).filter((c) => c.offsetWidth);
+  const unit = kids.length > 1 ? kids[1].offsetLeft - kids[0].offsetLeft : kids[0] ? kids[0].offsetWidth + 4 : 240; // 실제 카드 간격(줄마다 gap이 달라도 어긋나지 않게)
   const now = Date.now();
   if (st.last && now - st.last < 60) { return; } // 트랙패드 연속 이벤트는 한 번으로 묶기
   st.last = now;
-  const base = st.raf ? st.target : Math.round(row.scrollLeft / unit) * unit;
-  st.target = Math.max(0, Math.min(max, base + (dy > 0 ? unit : -unit)));
+  const base = st.raf ? st.target : snapPos(row, row.scrollLeft);
+  st.target = Math.max(0, Math.min(max, snapPos(row, base + (dy > 0 ? unit : -unit))));
   wheelRun(row, st);
 }, { passive: false });
 
@@ -212,8 +212,7 @@ try { const t = localStorage.getItem("snsToken"); if (t) connect(t, false); } ca
     const name = q.value.trim();
     if (!name || busy) return;
     if (!connected) { box.hidden = false; box.textContent = ""; box.appendChild(el("p", { class: "hint", text: "확장 프로그램과 연결되어 있어야 계정을 찾을 수 있습니다." })); return; }
-    if (checkStatus && checkStatus.running) { box.hidden = false; box.textContent = ""; box.appendChild(el("p", { class: "hint", text: "가져오는 중에는 계정 검색을 할 수 없습니다. 수집이 끝난 뒤 다시 눌러 주세요." })); return; }
-    busy = true; go.disabled = true;
+    busy = true; go.disabled = true; searchActive++; // 검색은 수집보다 우선(수집 중에도 바로 실행)
     box.hidden = false; box.textContent = "";
     const head = el("div", { class: "sr-head" }, [el("b", { text: "“" + name + "” 계정 검색" })]);
     const x = el("button", { type: "button", class: "x", text: "×", "aria-label": "닫기" });
@@ -231,12 +230,12 @@ try { const t = localStorage.getItem("snsToken"); if (t) connect(t, false); } ca
         fillResults(body, p, list);
       } catch (e) { body.textContent = ""; body.appendChild(el("p", { class: "hint", text: "검색하지 못했습니다: " + ((e && e.message) || "오류") })); }
     }
-    busy = false; go.disabled = false;
+    busy = false; go.disabled = false; searchActive = Math.max(0, searchActive - 1);
   };
   go.addEventListener("click", run);
   q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
-  document.addEventListener("click", (e) => { if (!busy && !e.target.closest(".sbox")) close(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !busy) close(); });
+  document.addEventListener("click", (e) => { if (!busy && !e.composedPath().some((n) => n.classList && (n.classList.contains("sbox") || n.classList.contains("modal-back")))) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !busy && !document.querySelector(".modal-back:not([hidden])")) close(); });
 })();
 
 /* ---------- 상단 홈 / 추적 계정 관리 버튼 ---------- */

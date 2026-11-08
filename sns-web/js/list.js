@@ -349,6 +349,10 @@ function renderList() {
         chip(picFace(t, t.handle || nm, "pface"), nm, n, acctFocus === t.id, () => { acctFocus = acctFocus === t.id ? "" : t.id; renderList(); });
       });
       const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(bar);
+    } else if (document.documentElement.getAttribute("data-design") === "bento") {
+      // 이 매체에 추적 계정이 없어도 오른쪽 목록 카드를 같은 자리에 비어 있는 채로 보여줍니다
+      const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 계정" }), el("span", { class: "n", text: "0" })]));
+      const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb);
     }
     if (acctFocus) list = list.filter((it) => it.via === acctFocus);
   }

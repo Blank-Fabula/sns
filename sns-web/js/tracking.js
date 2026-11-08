@@ -239,24 +239,15 @@ $("searchBtn").addEventListener("click", async () => {
   err.hidden = true;
   if (!q) { err.textContent = "검색할 이름을 입력하세요."; err.hidden = false; return; }
   const platform = $("tplatform").value;
-  // 수집이 진행 중이면 검색 창과 수집창이 서로 가려 수집이 멈추므로, 끝나는 대로 자동으로 검색합니다(그동안 다른 계정도 계속 추가할 수 있습니다).
-  if (checkStatus && checkStatus.running) {
-    if (searchWaiting) return;
-    searchWaiting = true;
-    $("searchBtn").disabled = true;
-    err.textContent = "지금 가져오는 중이라 끝나면 자동으로 \"" + q + "\"를 검색합니다. 그동안 지금 보이는 결과에서 다른 계정을 계속 추가해도 됩니다."; err.hidden = false;
-    while (checkStatus && checkStatus.running) await new Promise((r) => setTimeout(r, 1000));
-    searchWaiting = false; err.hidden = true;
-  }
   box.hidden = false; box.textContent = "";
   box.appendChild(el("p", { class: "hint", text: "검색 중… 크롬에서 탭이 잠깐 열렸다 닫힙니다." }));
-  $("searchBtn").disabled = true;
+  $("searchBtn").disabled = true; searchActive++; // 검색은 수집보다 우선(수집 중에도 바로 실행)
   try {
     const list = await call("searchAccount", { platform, q }, 40000);
     box.textContent = "";
     fillResults(box, platform, list);
   } catch (e) { box.textContent = ""; showErr(e); box.hidden = true; }
-  finally { $("searchBtn").disabled = false; }
+  finally { $("searchBtn").disabled = false; searchActive = Math.max(0, searchActive - 1); }
 });
 
 // 지금 최신화: 먼저 로그인 상태를 확인하고, 로그인이 안 된 매체가 있으면 모달(로그인 하기)을 띄웁니다. 모두 로그인되어 있으면 바로 가져옵니다.

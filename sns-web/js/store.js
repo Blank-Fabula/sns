@@ -133,7 +133,7 @@ async function refresh() {
   // 수집창이 가려져 수집이 일시정지됐다면 안내 모달을 띄웁니다(이어서 수집 / 닫기).
   // 이 웹 화면을 보고 있는 중이면 모달 없이 바로 수집창을 앞으로 내 이어서 수집합니다(몇 초 간격으로 한 번씩).
   // 웹 화면을 벗어나 있을 때만 모달(이어서 수집/닫기)을 준비해 둡니다.
-  if (checkStatus.paused && checkStatus.running) {
+  if (checkStatus.paused && checkStatus.running && !searchActive) {
     if (document.visibilityState === "visible") {
       $("pausedModal").hidden = true;
       if (!pauseDismissed && Date.now() - lastAutoResume > 6000) { lastAutoResume = Date.now(); call("resumeCheck").catch(() => {}); }
