@@ -328,3 +328,18 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
   const mark = (el) => { if (el && el.classList && el.classList.contains("row-cards")) el.classList.toggle("sl", el.scrollLeft > 2); };
   document.addEventListener("scroll", (e) => mark(e.target), true);
 })();
+
+/* 마우스를 올렸을 때 브라우저가 띄우는 흰색 설명 상자(title 툴팁)를 없앱니다. 스크린리더용으로 aria-label이 없으면 title 내용을 거기로 옮깁니다. */
+(() => {
+  const strip = (n) => {
+    if (!n || n.nodeType !== 1) return;
+    const fix = (e) => { const t = e.getAttribute("title"); if (t === null) return; if (t && !e.hasAttribute("aria-label") && !e.textContent.trim()) e.setAttribute("aria-label", t); e.removeAttribute("title"); };
+    fix(n);
+    n.querySelectorAll && n.querySelectorAll("[title]").forEach(fix);
+  };
+  strip(document.body);
+  new MutationObserver((ms) => ms.forEach((m) => {
+    if (m.type === "attributes") strip(m.target);
+    else m.addedNodes.forEach(strip);
+  })).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["title"] });
+})();

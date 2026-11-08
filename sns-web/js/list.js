@@ -189,11 +189,15 @@ function card(it) {
   const meta = [it.author, pub ? "게시 " + pub : "", "수집 " + relative(it.collectedAt)].filter(Boolean).join(" · ");
   kids.push(el("div", { class: "body" }, [el("span", { class: "badge", text: SRC_LABELS[it.source] || it.source }), el("div", { class: "title", text: it.title }), el("div", { class: "meta", text: meta })]));
   const safe = /^https:\/\//.test(it.url || "") ? it.url : "#";
-  const a = el("a", { class: "card", href: safe, target: "_blank", rel: "noopener noreferrer" }, kids);
+  // href를 달지 않아 브라우저가 마우스를 올렸을 때 왼쪽 아래에 주소 띠를 띄우지 않습니다. 열기는 클릭 처리로 대신합니다.
+  const a = el("a", { class: "card", role: "link", tabindex: "0" }, kids);
   a._item = it;
   if (seen.has(it.id)) a.classList.add("seen");
-  // 일반 클릭은 이 페이지에서 보기/새 크롬 창으로, Ctrl·휠 클릭은 기본 동작(새 탭)을 유지합니다.
-  a.addEventListener("click", (e) => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0 || safe === "#") return; e.preventDefault(); setViewCtx(a, it); openItem(it); });
+  const outside = () => { if (safe !== "#") window.open(safe, "_blank", "noopener,noreferrer"); };
+  // 일반 클릭은 이 페이지에서 보기/새 크롬 창으로, Ctrl·Shift·휠 클릭은 새 탭으로 엽니다.
+  a.addEventListener("click", (e) => { if (e.button !== 0 || safe === "#") return; if (e.ctrlKey || e.metaKey || e.shiftKey) { outside(); return; } setViewCtx(a, it); openItem(it); });
+  a.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); outside(); } });
+  a.addEventListener("keydown", (e) => { if (e.key === "Enter" && safe !== "#") { e.preventDefault(); setViewCtx(a, it); openItem(it); } });
   return a;
 }
 

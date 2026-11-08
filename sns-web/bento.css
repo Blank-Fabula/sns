@@ -1208,3 +1208,4 @@ html[data-design="bento"] #grid .sec .card{contain:layout paint style}
 html[data-design="bento"] #grid .sec{box-shadow:0 2px 10px rgba(40,38,35,.06) !important}
 html[data-design="bento"][data-theme="dark"] #grid .sec{box-shadow:0 2px 10px rgba(0,0,0,.3) !important}
 html[data-design="bento"] #grid .card img{content-visibility:auto}
+html[data-design="bento"] #grid .card,html[data-design="bento"] .media-grid .card{cursor:pointer}
