@@ -24,7 +24,8 @@ document.addEventListener("wheel", (ev) => {
       ev.preventDefault();
       // 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동
       const vb = document.getElementById("vbar"), room = vb.clientHeight - 12 - Math.min(120, vb.clientHeight - 12), max = el.scrollHeight - el.clientHeight;
-      vScroll(el, room > 0 ? dy * max / room : dy);
+      const raw = room > 0 ? dy * max / room : dy, cap = el.clientHeight * 0.6; // 내용이 아주 길어도 휠 한 칸에 한 화면의 60%까지만(한 번에 수백 장이 새로 그려지며 렉 걸리는 것 방지)
+      vScroll(el, Math.max(-cap, Math.min(cap, raw)));
     }
     return;
   }
