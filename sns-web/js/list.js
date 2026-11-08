@@ -175,7 +175,7 @@ function appendProgressive(g, arr, step) {
 function card(it) {
   const kids = [];
   if (it.thumb) {
-    const img = el("img", { alt: "", referrerpolicy: "no-referrer" });
+    const img = el("img", { alt: "", referrerpolicy: "no-referrer", decoding: "async" });
     img.dataset.src = it.thumb;
     imgObserver.observe(img);
     kids.push(img);

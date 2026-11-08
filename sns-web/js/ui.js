@@ -293,16 +293,19 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
     const sr = side && side.getBoundingClientRect();
     const hasGap = sr && sr.width > 0 && sr.left > r.right; // 오른쪽 열이 없는 화면(설정·추적)은 박스 안쪽 오른쪽 끝에 둡니다
     const gap = hasGap ? sr.left - r.right : 0;
+    // 읽기를 먼저 모두 하고 쓰기는 뒤에 몰아서: 스크롤 때마다 강제 레이아웃(수백 장 카드 전체 다시 계산)이 생기지 않게 합니다.
+    const bh = Math.max(40, r.height);
+    const th = Math.min(THUMB, bh - 2 * PAD); // 내용 길이와 상관없이 고정 길이
+    const room = bh - 2 * PAD - th;
+    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    const st = el.scrollTop;
     bar.hidden = false;
     bar.classList.toggle("inpanel", !hasGap);
     bar.style.left = hasGap ? r.right + (gap - 36) / 2 + "px" : r.right - 36 - 8 + "px";
     bar.style.top = r.top + "px";
-    bar.style.height = Math.max(40, r.height) + "px";
-    const th = Math.min(THUMB, bar.clientHeight - 2 * PAD); // 내용 길이와 상관없이 고정 길이
-    const room = bar.clientHeight - 2 * PAD - th;
-    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    bar.style.height = bh + "px";
     thumb.style.height = th + "px";
-    thumb.style.transform = `translateY(${max > 0 ? PAD + room * el.scrollTop / max : PAD}px)`;
+    thumb.style.transform = `translateY(${max > 0 ? PAD + room * st / max : PAD}px)`;
   }
   const scrollTo = (y) => { const el = target(); if (!el) return; const th = thumb.offsetHeight, room = bar.clientHeight - 2 * PAD - th, max = el.scrollHeight - el.clientHeight; el.scrollTop = room > 0 ? Math.max(0, Math.min(1, (y - PAD) / room)) * max : 0; };
   thumb.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); thumb.setPointerCapture(e.pointerId); drag = e.clientY - thumb.getBoundingClientRect().top; bar.classList.add("drag"); });
@@ -310,9 +313,11 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
   const end = () => { drag = null; bar.classList.remove("drag"); };
   thumb.addEventListener("pointerup", end); thumb.addEventListener("pointercancel", end);
   bar.addEventListener("pointerdown", (e) => { if (e.target === bar) scrollTo(e.clientY - bar.getBoundingClientRect().top - thumb.offsetHeight / 2); });
-  ["grid", "setPanel", "trackPanel"].forEach((i) => { const e = document.getElementById(i); if (e) e.addEventListener("scroll", update, { passive: true }); });
-  window.addEventListener("resize", update);
-  new MutationObserver(() => requestAnimationFrame(update)).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "style", "class"] });
+  let upRaf = 0;
+  const updateSoon = () => { if (!upRaf) upRaf = requestAnimationFrame(() => { upRaf = 0; update(); }); }; // 한 프레임에 한 번만
+  ["grid", "setPanel", "trackPanel"].forEach((i) => { const e = document.getElementById(i); if (e) e.addEventListener("scroll", updateSoon, { passive: true }); });
+  window.addEventListener("resize", updateSoon);
+  new MutationObserver(updateSoon).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "style", "class"] });
   setInterval(update, 800);
   update();
 })();
