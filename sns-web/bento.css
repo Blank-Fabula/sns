@@ -1200,3 +1200,11 @@ html[data-design="bento"] .gchips2 .gc:hover{background:var(--line)}
 html[data-design="bento"] .gchips2 .gc.on{background:var(--accent);color:var(--accent-fg)}
 html[data-design="bento"] .gchips2 .gc.on i{color:inherit;opacity:.7}
 html[data-design="bento"] #gRename.armed{background:var(--accent);color:var(--accent-fg)}
+
+/* 렉 줄이기(2): 카드마다 달린 뱃지 배경 블러 제거, 섹션·카드를 화면 밖에서는 그리지 않게(content-visibility), 큰 그림자 단순화 */
+html[data-design="bento"] .media-grid .card .badge{-webkit-backdrop-filter:none !important;backdrop-filter:none !important;background:rgba(255,255,255,.92) !important}
+html[data-design="bento"] #grid.sections > .sec,html[data-design="bento"] #grid > .sections > .sec,html[data-design="bento"] #grid > .sec{content-visibility:auto;contain-intrinsic-size:auto 420px}
+html[data-design="bento"] #grid .sec .card{contain:layout paint style}
+html[data-design="bento"] #grid .sec{box-shadow:0 2px 10px rgba(40,38,35,.06) !important}
+html[data-design="bento"][data-theme="dark"] #grid .sec{box-shadow:0 2px 10px rgba(0,0,0,.3) !important}
+html[data-design="bento"] #grid .card img{content-visibility:auto}
