@@ -260,8 +260,8 @@ html[data-design="bento"] .brand svg{display:block;width:100%;height:100%}
   html[data-design="bento"] .themeswitch .knob{position:absolute;left:5px;top:5px;width:46px;height:46px;border-radius:50%;transition:top .4s cubic-bezier(.5,0,.2,1)}
   html[data-design="bento"][data-theme="dark"] .themeswitch .knob{top:61px}
   html[data-design="bento"] .themeswitch .sun{position:absolute;inset:0;border-radius:50%;background:#ffbf1f;box-shadow:inset 0 -3px 6px rgba(240,130,0,.35),0 0 0 5px rgba(255,255,255,.22),0 0 0 11px rgba(255,255,255,.12);transition:opacity .3s}
-  html[data-design="bento"] .themeswitch .moon{position:absolute;inset:0;border-radius:50%;background:#dfe1ec;box-shadow:inset -3px -3px 6px rgba(120,125,150,.35),0 0 0 5px rgba(255,255,255,.12),0 0 0 11px rgba(255,255,255,.06);opacity:0;transition:opacity .3s}
-  html[data-design="bento"] .themeswitch .moon i{position:absolute;border-radius:50%;background:#c3c6d4}
+  html[data-design="bento"] .themeswitch .moon{position:absolute;inset:0;border-radius:50%;background:#e8e6e1;box-shadow:inset -3px -3px 6px rgba(130,126,118,.35),0 0 0 5px rgba(255,255,255,.12),0 0 0 11px rgba(255,255,255,.06);opacity:0;transition:opacity .3s}
+  html[data-design="bento"] .themeswitch .moon i{position:absolute;border-radius:50%;background:#cdcbc5}
   html[data-design="bento"] .themeswitch .moon i:nth-child(1){width:12px;height:12px;left:24px;top:8px}
   html[data-design="bento"] .themeswitch .moon i:nth-child(2){width:8px;height:8px;left:9px;top:26px}
   html[data-design="bento"] .themeswitch .moon i:nth-child(3){width:6px;height:6px;left:28px;top:30px}
@@ -1144,3 +1144,25 @@ html[data-design="bento"] body.setOpen #vbar{display:none !important}
   html[data-design="bento"] header .acctwrap{bottom:26px !important}
   html[data-design="bento"] .themeswitch{bottom:118px !important}
 }
+
+/* 스위치 바깥 테두리·그림자 제거 → 배경이 튀어나와 보이지 않게 */
+@media (min-width:861px){ html[data-design="bento"] .themeswitch{box-shadow:inset 0 3px 8px rgba(0,0,0,.22) !important} }
+
+/* 현재 작업 카드는 세로를 줄이고, 사람 목록 카드는 늘림 */
+@media (min-width:861px){
+  html[data-design="bento"] .workcard:not([hidden]){max-height:300px;overflow:hidden}
+  html[data-design="bento"] #sidePeople:not([hidden]){min-height:272px}
+}
+
+/* 다크: 스위치 테두리가 레일 색과 같아 안 보이던 것 → 밝은 테두리 */
+html[data-design="bento"][data-theme="dark"] .themeswitch{box-shadow:inset 0 3px 8px rgba(0,0,0,.35),0 0 0 3px #34322f,0 4px 12px rgba(0,0,0,.4) !important}
+
+
+/* 라이트: 스위치 테두리 — 레일보다 살짝만 진한 흰색 계열 */
+html[data-design="bento"]:not([data-theme="dark"]) .themeswitch{box-shadow:inset 0 3px 8px rgba(0,0,0,.22),0 0 0 3px #efedea,0 4px 12px rgba(40,38,35,.2) !important}
+
+/* 다크: 가장자리에 라이트 모드 하늘색 바탕이 비쳐 보이지 않게 밤하늘 색으로 */
+html[data-design="bento"][data-theme="dark"] .themeswitch{background:#1b1b1a !important}
+
+
+
