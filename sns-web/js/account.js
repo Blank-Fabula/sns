@@ -27,7 +27,7 @@ function pickAvatar(file) {
 }
 try { sess = localStorage.getItem("snsSess") || ""; } catch (e) {}
 async function api(action, body) {
-  const r = await fetch(API_BASE + "/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, body || {})) });
+  const r = await apiPost("/api/auth", Object.assign({ action, session: sess }, body || {}));
   let j;
   try { j = await r.json(); } catch (e) { throw new Error("서버 응답을 읽지 못했습니다."); }
   if (!j.ok) throw new Error(j.error || "요청에 실패했습니다.");
@@ -40,6 +40,7 @@ async function pairFlow(uid, tok) {
   pairBusy = true;
   try {
     $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = uid + " 로그인됨";
+    try { localStorage.setItem("snsUid", uid); } catch (e) {}
     $("connAcct").hidden = false; setAvatarWho(uid); $("connOut").textContent = "로그아웃";
     acctSay("확장에 연결하는 중…");
     token = tok;
@@ -129,7 +130,15 @@ async function initAccount() {
   });
   if (sess) {
     try { const j = await api("me"); pairFlow(j.id, j.token); }
-    catch (e) { setSess(""); }
+    catch (e) {
+      if (e && e.offline) {
+        // 서버(Vercel)에 닿지 않는 곳(학교망 등): 로그인 상태를 유지하고, 저장된 연결 코드로 확장에만 연결합니다(ui.js).
+        let uid = ""; try { uid = localStorage.getItem("snsUid") || ""; } catch (x) {}
+        $("acctForm").hidden = true; $("acctUser").hidden = false; $("connAcct").hidden = false; $("connOut").textContent = "로그아웃";
+        $("acctWho").textContent = (uid ? uid + " " : "") + "로그인됨 (서버에 연결할 수 없어 확장에만 연결 중)";
+        if (uid) setAvatarWho(uid);
+      } else setSess("");
+    }
   }
 }
 initAccount();

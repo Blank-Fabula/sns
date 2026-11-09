@@ -4,7 +4,7 @@ let savedAt = 0, saveNote = "", lastSig = "", syncTimer = 0, syncing = false, la
 let savedItems = [], savedMeta = null, baseTrackedSig = ""; // baseTrackedSig: 마지막으로 서버와 맞춘 추적 계정 목록 // 서버에서 불러온 저장본(확장 글과 합쳐서 보여줍니다)
 let chunkSigs = [];
 async function sapi(action, extra) {
-  const r = await fetch(API_BASE + "/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, extra || {})) });
+  const r = await apiPost("/api/sync", Object.assign({ action, session: sess }, extra || {}));
   let j;
   try { j = await r.json(); } catch (e) { throw new Error("서버 응답을 읽지 못했습니다."); }
   if (!j.ok) throw new Error(j.error || "요청에 실패했습니다.");

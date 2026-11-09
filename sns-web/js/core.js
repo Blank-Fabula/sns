@@ -2,6 +2,15 @@
    (로그인·저장본은 어느 주소에서 열어도 같은 Vercel 서버를 씁니다.) */
 const API_ORIGIN = "https://sns-mix.vercel.app";
 const API_BASE = /(^|\.)vercel\.app$/.test(location.hostname) ? "" : API_ORIGIN;
+/* 서버(Vercel) 호출. 8초 안에 응답이 없거나 막혀 있으면 offline 오류로 알립니다(학교망 등). */
+async function apiPost(path, obj) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
+  try {
+    return await fetch(API_BASE + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj), signal: ctl.signal });
+  } catch (e) {
+    const er = new Error("서버에 연결할 수 없습니다."); er.offline = true; throw er;
+  } finally { clearTimeout(t); }
+}
 const LABELS = { people: "사람별", youtube: "유튜브", x: "X", instagram: "인스타" };
 /* 오른쪽 "현재 작업" 카드 아래 표시되는 정보 — 여기서 바꾸면 됩니다 */
 const WEB_VERSION = "v265";
