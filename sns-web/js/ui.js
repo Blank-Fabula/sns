@@ -14,6 +14,12 @@ function vScroll(el, d) {
   };
   vAnim.raf = requestAnimationFrame(step);
 }
+// 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동(스크롤바 위·글 영역 위 어디서든 같은 속도)
+function barWheel(el, dy) {
+  const vb = document.getElementById("vbar"), room = vb.clientHeight - 12 - Math.min(120, vb.clientHeight - 12), max = el.scrollHeight - el.clientHeight;
+  const raw = room > 0 ? dy * max / room : dy, cap = el.clientHeight * 0.6; // 내용이 아주 길어도 휠 한 칸에 한 화면의 60%까지만(한 번에 수백 장이 새로 그려지며 렉 걸리는 것 방지)
+  vScroll(el, Math.max(-cap, Math.min(cap, raw)));
+}
 document.addEventListener("wheel", (ev) => {
   if (ev.ctrlKey || window.innerWidth < 861 || !ev.target.closest) return;
   const dy = ev.deltaMode === 1 ? ev.deltaY * 40 : ev.deltaY;
@@ -23,9 +29,7 @@ document.addEventListener("wheel", (ev) => {
     if (el) {
       ev.preventDefault();
       // 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동
-      const vb = document.getElementById("vbar"), room = vb.clientHeight - 12 - Math.min(120, vb.clientHeight - 12), max = el.scrollHeight - el.clientHeight;
-      const raw = room > 0 ? dy * max / room : dy, cap = el.clientHeight * 0.6; // 내용이 아주 길어도 휠 한 칸에 한 화면의 60%까지만(한 번에 수백 장이 새로 그려지며 렉 걸리는 것 방지)
-      vScroll(el, Math.max(-cap, Math.min(cap, raw)));
+      barWheel(el, dy);
     }
     return;
   }
@@ -33,7 +37,11 @@ document.addEventListener("wheel", (ev) => {
   if (!ev.target.closest("#grid") || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
   ev.preventDefault();
   const row = ev.target.closest(".row-cards");
-  if (!row) return;
+  if (!row) { // 카드 줄이 아닌 곳(세로로 쌓인 카드 목록 등): 스크롤바에 마우스를 올리지 않아도 휠로 글 영역이 세로로 움직입니다
+    const g = document.getElementById("grid");
+    if (g && g.scrollHeight > g.clientHeight) barWheel(g, dy); // 스크롤바 위에서 돌릴 때와 같은 속도
+    return;
+  }
   const max = row.scrollWidth - row.clientWidth;
   if (max <= 0) return;
   let st = wheelAnim.get(row);

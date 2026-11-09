@@ -1282,8 +1282,8 @@ html[data-design="bento"] .sresults .sr-body::-webkit-scrollbar{display:none}
 /* 오른쪽 열 순서: 사람 목록 → 매체 탭 → (맨 아래) 상단 버튼 줄 + 현재 작업 카드.
    상단 버튼 줄(.toolbar)은 카드 바로 위에 붙어 보이도록 js/ui.js가 위치를 맞춥니다. */
 @media (min-width:861px){
-  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))){grid-template-rows:minmax(272px,1fr) 222px auto !important}
-  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) #sidePeople{grid-row:1 !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))){grid-template-rows:minmax(120px,1fr) 222px auto !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) #sidePeople{grid-row:1 !important;align-self:stretch !important;max-height:none !important;min-height:0 !important}
   html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) #tabs{grid-row:2 !important;align-self:end !important}
   html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) .workcard:not([hidden]){grid-row:3 !important;align-self:end !important;margin-top:64px !important}
   html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))):has(#sidePeople[hidden]) .workcard{grid-row:3 !important;align-self:end !important}
