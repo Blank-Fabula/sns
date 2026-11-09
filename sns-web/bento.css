@@ -377,7 +377,7 @@ html[data-design="bento"] #connectPanel #acctForm input{width:100%;box-sizing:bo
 html[data-design="bento"] #connectPanel #acctForm input:focus{border-color:var(--accent);background:var(--card)}
 html[data-design="bento"] #connectPanel #acctForm button{height:48px;border-radius:999px;font-size:15px;font-weight:700;border:0}
 html[data-design="bento"] #connectPanel #acctForm button.primary{background:var(--accent);color:var(--accent-fg);margin-top:4px}
-html[data-design="bento"] #connectPanel #acctForm #acctSignup{background:var(--soft);color:var(--fg)}
+html[data-design="bento"] #connectPanel #acctForm #acctSignup,html[data-design="bento"] #connectPanel #acctForm #acctLocal{background:var(--soft);color:var(--fg)}
 html[data-design="bento"] #connectPanel #acctMsg{text-align:center;margin:8px 0 0}
 
 /* 설정·관리 화면: 바깥 aside가 그림자를 잘라 모서리 색이 달라 보이던 문제 → 잘림 해제(스크롤은 카드 안에서) */

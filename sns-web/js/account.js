@@ -35,13 +35,27 @@ async function api(action, body) {
 }
 function acctSay(t, isErr) { const m = $("acctMsg"); m.textContent = t || ""; m.hidden = !t; m.className = isErr ? "error" : "hint"; }
 function setSess(s) { sess = s || ""; try { if (sess) localStorage.setItem("snsSess", sess); else localStorage.removeItem("snsSess"); } catch (e) {} }
+// "서버 없이 연결": 서버(Vercel)에 접속하지 않고, 이 브라우저가 직접 만든 연결 코드로 확장과 연결합니다.
+const LOCAL_ID = "이 브라우저";
+const HEX32 = /^[0-9a-f]{32}$/;
+function localToken() {
+  try {
+    let t = localStorage.getItem("snsLocalToken") || "";
+    if (!HEX32.test(t)) {
+      t = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+      localStorage.setItem("snsLocalToken", t);
+    }
+    return t;
+  } catch (e) { return ""; }
+}
 async function pairFlow(uid, tok) {
   if (pairBusy) return;
   pairBusy = true;
   try {
-    $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = uid + " 로그인됨";
-    try { localStorage.setItem("snsUid", uid); } catch (e) {}
-    $("connAcct").hidden = false; setAvatarWho(uid); $("connOut").textContent = "로그아웃";
+    const isLocal = uid === LOCAL_ID;
+    $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = isLocal ? "서버 없이 연결됨 (이 브라우저 전용)" : uid + " 로그인됨";
+    if (!isLocal) { try { localStorage.setItem("snsUid", uid); } catch (e) {} }
+    $("connAcct").hidden = false; setAvatarWho(uid); $("connOut").textContent = isLocal ? "연결 해제" : "로그아웃";
     acctSay("확장에 연결하는 중…");
     token = tok;
     let st;
@@ -54,7 +68,18 @@ async function pairFlow(uid, tok) {
     }
     if (!st || typeof st.paired !== "boolean") throw new Error("확장이 오래된 버전입니다. v0.11.0 이상으로 업데이트한 뒤 새로고침하세요.");
     if (!st.match) {
-      if (st.paired) throw new Error("이 확장은 다른 코드로 이미 연결되어 있습니다. 확장 화면에서 '연결 해제'를 누른 뒤 다시 시도하세요.");
+      if (st.paired) {
+        // 이 브라우저가 알고 있는 다른 코드(서버 계정 코드 ↔ 서버 없이 연결 코드)로 연결돼 있었다면 풀고 바꿉니다.
+        let freed = false;
+        for (const k of ["snsLocalToken", "snsToken"]) {
+          let c = ""; try { c = localStorage.getItem(k) || ""; } catch (e) {}
+          if (!HEX32.test(c) || c === tok) continue;
+          token = c;
+          try { const s2 = await call("status", {}); if (s2 && s2.match) { await call("unpair", {}); freed = true; break; } } catch (e) { /* 다음 후보 */ }
+        }
+        token = tok;
+        if (!freed) throw new Error("이 확장은 다른 코드로 이미 연결되어 있습니다. 확장 화면에서 '연결 해제'를 누른 뒤 다시 시도하세요.");
+      }
       await call("adopt", { token: tok });
     }
     acctSay("");
@@ -77,8 +102,16 @@ async function initAccount() {
   };
   $("acctForm").addEventListener("submit", (ev) => { ev.preventDefault(); doAuth("login"); });
   $("acctSignup").addEventListener("click", () => doAuth("signup"));
+  $("acctLocal").addEventListener("click", () => {
+    const t = localToken();
+    if (!t) { acctSay("이 브라우저에서는 저장소를 쓸 수 없어 연결 코드를 만들 수 없습니다.", true); return; }
+    try { localStorage.setItem("snsLocal", "1"); } catch (e) {}
+    acctSay("");
+    pairFlow(LOCAL_ID, t);
+  });
   const doLogout = async () => {
-    try { await api("logout"); } catch (e) {}
+    if (sess) { try { await api("logout"); } catch (e) {} }
+    try { localStorage.removeItem("snsLocal"); } catch (e) {}
     // 저장된 연결 코드도 지워야 새로고침 후 자동으로 다시 연결되지 않습니다.
     try { localStorage.removeItem("snsToken"); } catch (e) {}
     token = "";
@@ -139,6 +172,9 @@ async function initAccount() {
         if (uid) setAvatarWho(uid);
       } else setSess("");
     }
+  } else {
+    let on = ""; try { on = localStorage.getItem("snsLocal") || ""; } catch (e) {}
+    if (on === "1") { const t = localToken(); if (t) pairFlow(LOCAL_ID, t); }
   }
 }
 initAccount();
