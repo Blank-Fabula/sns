@@ -206,6 +206,38 @@ try { const t = localStorage.getItem("snsToken"); if (t) connect(t, false); } ca
 (function () {
   const q = $("q"), go = $("sGo"), box = $("sResults");
   let busy = false;
+  // 좁은 화면(칸이 위아래로 쌓일 때)에서는 결과 상자 안이 아니라 바깥 오른쪽에 둥근 스크롤 막대를 둡니다(보이는 건 CSS가 결정).
+  const rail = document.createElement("div"), thumb = document.createElement("i");
+  rail.className = "sr-rail"; rail.hidden = true; rail.appendChild(thumb); box.parentNode.appendChild(rail);
+  const PAD = 6, THUMB = 120; // 메인 스크롤바와 같은 손잡이 길이(고정)
+  const railSync = () => {
+    const over = !box.hidden && box.scrollHeight > box.clientHeight + 1;
+    rail.hidden = !over;
+    if (!over) return;
+    rail.style.top = box.offsetTop + "px"; rail.style.height = box.offsetHeight + "px";
+    const h = rail.clientHeight, th = Math.min(THUMB, h - PAD * 2);
+    const room = Math.max(1, h - PAD * 2 - th), max = Math.max(1, box.scrollHeight - box.clientHeight);
+    thumb.style.height = th + "px"; thumb.style.top = Math.round(PAD + room * (box.scrollTop / max)) + "px";
+  };
+  box.addEventListener("scroll", railSync, { passive: true });
+  // 막대 위에서 마우스 휠을 굴려도 결과가 스크롤되게(줄 단위·화면 단위 휠도 픽셀로 환산)
+  rail.addEventListener("wheel", (e) => { const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? box.clientHeight : 1; box.scrollTop += e.deltaY * k; e.preventDefault(); }, { passive: false });
+  window.addEventListener("resize", railSync);
+  if (window.ResizeObserver) new ResizeObserver(railSync).observe(box);
+  new MutationObserver(railSync).observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+  thumb.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault(); thumb.setPointerCapture(ev.pointerId);
+    const y0 = ev.clientY, top0 = box.scrollTop;
+    const h = rail.clientHeight, th = thumb.offsetHeight, room = Math.max(1, h - PAD * 2 - th), max = Math.max(1, box.scrollHeight - box.clientHeight);
+    const mv = (e) => { box.scrollTop = top0 + (e.clientY - y0) * (max / room); };
+    const up = () => { thumb.removeEventListener("pointermove", mv); thumb.removeEventListener("pointerup", up); thumb.removeEventListener("pointercancel", up); };
+    thumb.addEventListener("pointermove", mv); thumb.addEventListener("pointerup", up); thumb.addEventListener("pointercancel", up);
+  });
+  rail.addEventListener("pointerdown", (ev) => { // 막대의 빈 곳을 누르면 그 위치로 이동
+    if (ev.target !== rail) return;
+    const r = rail.getBoundingClientRect(), frac = (ev.clientY - r.top - PAD) / Math.max(1, r.height - PAD * 2);
+    box.scrollTop = frac * (box.scrollHeight - box.clientHeight);
+  });
   const close = () => { box.hidden = true; };
   const refreshGo = () => { go.hidden = false; };
   setInterval(refreshGo, 1000); refreshGo();
@@ -342,4 +374,23 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
     if (m.type === "attributes") strip(m.target);
     else m.addedNodes.forEach(strip);
   })).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["title"] });
+})();
+
+// 오른쪽 열 맨 아래의 "현재 작업" 카드 바로 위에, 상단 버튼 줄(.toolbar)이 붙어 보이도록 위치를 맞춥니다(넓은 화면에서만).
+(() => {
+  const tb = document.querySelector("header .toolbar"), wc = document.getElementById("workCard"), lay = document.querySelector(".layout");
+  if (!tb || !wc || !lay) return;
+  let raf = 0;
+  const place = () => {
+    raf = 0;
+    const on = window.innerWidth >= 861 && !wc.hidden && wc.offsetParent !== null && !document.querySelector("#trackPanel:not([hidden])");
+    if (!on) { tb.style.removeProperty("top"); return; }
+    const op = tb.offsetParent, base = op && op !== document.body && op !== document.documentElement ? op.getBoundingClientRect().top : -window.scrollY;
+    tb.style.setProperty("top", Math.round(wc.getBoundingClientRect().top - base - tb.offsetHeight) + "px", "important");
+  };
+  const q = () => { if (!raf) raf = requestAnimationFrame(place); };
+  window.addEventListener("resize", q);
+  if (window.ResizeObserver) { const ro = new ResizeObserver(q); ro.observe(wc); ro.observe(lay); }
+  new MutationObserver(q).observe(document.body, { attributes: true, subtree: true, attributeFilter: ["hidden"] });
+  q();
 })();

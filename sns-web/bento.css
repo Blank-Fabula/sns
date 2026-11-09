@@ -1227,3 +1227,76 @@ html[data-design="bento"] .platlink:hover,html[data-design="bento"] .platlink:fo
 
 /* 라이트 모드: 큰 패널(#grid) 바탕을 순백색으로(카드·뱃지 흰색과 동일) */
 html[data-design="bento"]:not([data-theme="dark"]) #grid{background:#fcfcfc !important}
+
+/* ===== 좁은 화면(860px 이하) 정리 =====
+   1) 위쪽 줄을 넓은 화면과 같은 모양(매체 색 점 + "지금 최신화" 글자 버튼)으로 통일합니다.
+   2) 왼쪽에 남아 있던 큰 여백(레일용)을 없애 콘텐츠가 찌그러지거나 겹치지 않게 합니다.
+   3) 340px보다 좁아지면 줄어드는 대신 화면 전체가 가로로 스크롤됩니다. */
+@media (max-width:860px){
+  html[data-design="bento"] body{padding:10px 10px 24px;min-width:340px;box-sizing:border-box}
+  html[data-design="bento"] header .toolbar,html[data-design="bento"] header .toolbar:has(.lb.pi){position:static;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px;grid-template-columns:none;width:auto;height:48px;padding:0 14px 0 18px;border:0;border-radius:999px;background:var(--card);box-shadow:var(--shadow);clip-path:none;flex:0 1 auto;min-width:0;top:auto;left:auto}
+  html[data-design="bento"] header .toolbar::after{display:none}
+  html[data-design="bento"] header .toolbar .loginbar{display:flex;align-items:center;gap:10px;flex:none}
+  html[data-design="bento"] header .toolbar .lb.pi{position:relative;width:20px !important;height:20px !important;min-width:20px;padding:0 !important;border:0 !important;border-radius:50% !important;background:var(--pc) !important;overflow:visible;font-size:0;box-shadow:none;flex:none;order:0 !important;filter:none}
+  html[data-design="bento"] header .toolbar .lb.pi > *{display:none !important}
+  html[data-design="bento"] header .toolbar .lb.pi::after,html[data-design="bento"] header .toolbar .lb.pi.nl::after{content:"";position:absolute;inset:-7px;border-radius:50%;background:transparent}
+  html[data-design="bento"] header .toolbar .lb.pi-youtube{--pc:#ee3a32}
+  html[data-design="bento"] header .toolbar .lb.pi-x{--pc:#2a2928}
+  html[data-design="bento"] header .toolbar .lb.pi-instagram{--pc:linear-gradient(135deg,#f9a03f,#e1306c 55%,#833ab4)}
+  html[data-design="bento"][data-theme="dark"] header .toolbar .lb.pi-x{box-shadow:0 0 0 1.5px rgba(255,255,255,.28)}
+  html[data-design="bento"] header .toolbar .lb.pi.nl{opacity:.35}
+  html[data-design="bento"] header .toolbar .lb.pi.stop{opacity:.5}
+  html[data-design="bento"] header .toolbar .refreshbtn{width:auto !important;height:34px !important;min-width:0;padding:0 14px;border:0;border-radius:999px !important;background:var(--soft) !important;color:var(--muted) !important;font:500 12.5px/1 var(--font);display:inline-flex;align-items:center;gap:6px;flex:none;order:0 !important;opacity:.9}
+  html[data-design="bento"] header .toolbar .refreshbtn svg{display:none}
+  html[data-design="bento"] header .toolbar .refreshbtn::after{content:"지금 최신화";white-space:nowrap}
+  html[data-design="bento"] header .toolbar .refreshbtn .dot{order:-1;width:6px;height:6px;margin:0;position:static;opacity:.8;box-shadow:none}
+  html[data-design="bento"] header .toolbar .refreshbtn:hover:not(:disabled){color:var(--accent-fg) !important;background:var(--accent) !important}
+  /* 안쪽 요소가 한 줄로 못 줄어 세로로 찌그러지는 것 방지 */
+  html[data-design="bento"] .layout{grid-template-columns:minmax(0,1fr) !important}
+  html[data-design="bento"] .layout > *{min-width:0}
+}
+
+/* ===== 계정 검색 결과: 인스타 | X | 유튜브를 가로로 나란히, 칸마다 따로 스크롤(스크롤바는 숨김) =====
+   칸 폭이 180px 밑으로 내려가는 좁은 화면에서는 자동으로 위아래로 쌓입니다. */
+html[data-design="bento"] .sresults{flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:0 14px;scrollbar-width:none}
+html[data-design="bento"] .sresults::-webkit-scrollbar{display:none}
+html[data-design="bento"] .sresults > .sr-head{flex:1 1 100%}
+html[data-design="bento"] .sresults > .sr-sec{flex:1 1 180px;min-width:0;display:flex;flex-direction:column}
+html[data-design="bento"] .sresults .sr-body{max-height:max(160px,calc(60vh - 110px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none}
+html[data-design="bento"] .sresults .sr-body::-webkit-scrollbar{display:none}
+/* 중간 폭(861px 이상)에서는 검색창이 좁아도 결과창을 오른쪽으로 넓혀 세 칸이 유지되게 합니다 */
+@media (min-width:861px){
+  html[data-design="bento"] .sresults{right:auto;min-width:100%;width:min(760px,calc(100vw - 150px))}
+}
+/* 칸이 위아래로 쌓이는 좁은 화면(약 600px 이하): 결과 상자 안의 스크롤바는 숨기고, 상자 바깥 오른쪽에 둥근 막대(.sr-rail, 앱의 #vbar와 같은 모양)를 둡니다. */
+.sr-rail{display:none}
+@media (max-width:608px){
+  html[data-design="bento"] .sresults{right:42px;overscroll-behavior:contain}
+  html[data-design="bento"] .sresults .sr-body{max-height:none;overflow:visible}
+  html[data-design="bento"] .sr-rail{display:block;position:absolute;z-index:31;right:0;width:36px;border-radius:18px;background:var(--card);box-shadow:var(--shadow);touch-action:none}
+  html[data-design="bento"] .sr-rail[hidden]{display:none}
+  html[data-design="bento"] .sr-rail i{position:absolute;left:8px;right:8px;top:0;border-radius:10px;background:var(--soft);box-shadow:none;cursor:grab;transition:background .15s}
+  html[data-design="bento"] .sr-rail i:hover,html[data-design="bento"] .sr-rail i:active{background:var(--line)}
+}
+
+/* 오른쪽 열 순서: 사람 목록 → 매체 탭 → (맨 아래) 상단 버튼 줄 + 현재 작업 카드.
+   상단 버튼 줄(.toolbar)은 카드 바로 위에 붙어 보이도록 js/ui.js가 위치를 맞춥니다. */
+@media (min-width:861px){
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))){grid-template-rows:minmax(272px,1fr) 222px auto !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) #sidePeople{grid-row:1 !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) #tabs{grid-row:2 !important;align-self:end !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))) .workcard:not([hidden]){grid-row:3 !important;align-self:end !important;margin-top:64px !important}
+  html[data-design="bento"] .layout:not(:has(#trackPanel:not([hidden]))):has(#sidePeople[hidden]) .workcard{grid-row:3 !important;align-self:end !important}
+}
+
+/* 상단 점 안의 표시: 인스타 = 가운데 빈 흰 원, X = 흰 X, 유튜브 = 흰 재생 세모(유튜브 재생 버튼 비율, 무게중심을 가운데로) */
+html[data-design="bento"] header .toolbar .lb.pi::before{content:"";position:absolute;inset:0;pointer-events:none;background:var(--glyph) center/68% no-repeat}
+html[data-design="bento"] header .toolbar .lb.pi-instagram{--glyph:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='5.6' fill='none' stroke='%23fff' stroke-width='3.4'/%3E%3C/svg%3E")}
+html[data-design="bento"] header .toolbar .lb.pi-x{--glyph:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.4 6.4l11.2 11.2M17.6 6.4L6.4 17.6' fill='none' stroke='%23fff' stroke-width='3.6' stroke-linecap='round'/%3E%3C/svg%3E")}
+html[data-design="bento"] header .toolbar .lb.pi-youtube{--glyph:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.6 7.3L17.6 12L9.6 16.7Z' fill='%23fff' stroke='%23fff' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E")}
+
+/* 태양: 노란색 대신 앱의 포인트색(검은 계열) */
+html[data-design="bento"] .themeswitch .sun{background:var(--accent);box-shadow:inset 0 -3px 6px rgba(0,0,0,.4),0 0 0 5px rgba(255,255,255,.22),0 0 0 11px rgba(255,255,255,.12)}
+html[data-design="bento"] .themeswitch{background:#c3cfd9}
+html[data-design="bento"] .themeswitch{background:#dde5ec}
+html[data-design="bento"] .themeswitch{background:#9fcbee}
