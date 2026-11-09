@@ -9,7 +9,7 @@ function vScroll(el, d) {
   const step = () => {
     const diff = vAnim.target - el.scrollTop;
     if (Math.abs(diff) < 0.5) { el.scrollTop = vAnim.target; vAnim.raf = 0; return; }
-    el.scrollTop += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.13);
+    el.scrollTop += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.09);
     vAnim.raf = requestAnimationFrame(step);
   };
   vAnim.raf = requestAnimationFrame(step);
@@ -17,7 +17,7 @@ function vScroll(el, d) {
 // 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동(스크롤바 위·글 영역 위 어디서든 같은 속도)
 function barWheel(el, dy) {
   const vb = document.getElementById("vbar"), room = vb.clientHeight - 12 - Math.min(120, vb.clientHeight - 12), max = el.scrollHeight - el.clientHeight;
-  const SLOW = 0.7; // 전체 스크롤 속도 배율(작을수록 느림)
+  const SLOW = 0.5; // 전체 스크롤 속도 배율(작을수록 느림)
   const raw = (room > 0 ? dy * max / room : dy) * SLOW, cap = el.clientHeight * 0.6 * SLOW; // 내용이 아주 길어도 휠 한 칸에 한 화면의 60%까지만(한 번에 수백 장이 새로 그려지며 렉 걸리는 것 방지)
   vScroll(el, Math.max(-cap, Math.min(cap, raw)));
 }
@@ -35,7 +35,24 @@ document.addEventListener("wheel", (ev) => {
     return;
   }
   // 글 영역에서는 세로 휠 스크롤을 막고, 카드 줄 위에서는 그 줄을 좌우로 움직입니다
-  if (!ev.target.closest("#grid") || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
+  if (!ev.target.closest("#grid")) return;
+  if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+    // 트랙패드 가로 스크롤: 카드 줄을 손가락 움직임 그대로(1:1) 따라가게 직접 움직이고, 멈추면 가장 가까운 카드 자리로 살짝 맞춥니다.
+    // 줄이 그 방향으로 더 갈 수 없거나 줄이 아닌 곳이면 막아서 브라우저의 '뒤로/앞으로 가기' 스와이프가 발동하지 않게 합니다.
+    ev.preventDefault();
+    const r = ev.target.closest(".row-cards");
+    if (!r) return;
+    const dx = ev.deltaMode === 1 ? ev.deltaX * 40 : ev.deltaX, mx = r.scrollWidth - r.clientWidth;
+    if (mx <= 0 || (dx < 0 && r.scrollLeft <= 0) || (dx > 0 && r.scrollLeft >= mx - 1)) return;
+    const st = wheelAnim.get(r) || { target: 0, raf: 0 };
+    wheelAnim.set(r, st);
+    if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; } // 세로 휠의 카드 한 장 이동 애니메이션이 돌고 있으면 끊고 손가락을 따라갑니다
+    r.classList.add("wheeling"); // 스크롤 스냅이 중간에 끼어들어 튀지 않게
+    r.scrollLeft = Math.max(0, Math.min(mx, r.scrollLeft + dx));
+    clearTimeout(st.settle);
+    st.settle = setTimeout(() => { st.target = snapPos(r, r.scrollLeft); wheelRun(r, st); }, 160);
+    return;
+  }
   ev.preventDefault();
   const row = ev.target.closest(".row-cards");
   if (!row) { // 카드 줄이 아닌 곳(세로로 쌓인 카드 목록 등): 스크롤바에 마우스를 올리지 않아도 휠로 글 영역이 세로로 움직입니다
@@ -76,7 +93,7 @@ function wheelRun(row, st) {
   const step = () => {
     const diff = st.target - row.scrollLeft;
     if (Math.abs(diff) < 1) { row.scrollLeft = st.target; st.raf = 0; row.classList.remove("wheeling"); return; }
-    row.scrollLeft += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.12);
+    row.scrollLeft += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.08);
     st.raf = requestAnimationFrame(step);
   };
   st.raf = requestAnimationFrame(step);
