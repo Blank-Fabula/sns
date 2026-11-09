@@ -27,7 +27,7 @@ function pickAvatar(file) {
 }
 try { sess = localStorage.getItem("snsSess") || ""; } catch (e) {}
 async function api(action, body) {
-  const r = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, body || {})) });
+  const r = await fetch(API_BASE + "/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.assign({ action, session: sess }, body || {})) });
   let j;
   try { j = await r.json(); } catch (e) { throw new Error("서버 응답을 읽지 못했습니다."); }
   if (!j.ok) throw new Error(j.error || "요청에 실패했습니다.");

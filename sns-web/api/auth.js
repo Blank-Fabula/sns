@@ -48,7 +48,22 @@ async function gate(req) {
   return { blocked: tries >= 10, bump: async () => { await redis(["INCR", key]); await redis(["EXPIRE", key, "900"]); } };
 }
 
+// GitHub Pages(github.io)와 vercel.app 화면에서 부를 수 있게 CORS를 엽니다. 인증은 쿠키가 아니라 본문의 세션 값이라 안전합니다.
+const ORIGIN_OK = /^https:\/\/([a-z0-9-]+\.)*(github\.io|vercel\.app)$/;
+function cors(req, res) {
+  const o = req.headers.origin;
+  if (o && ORIGIN_OK.test(o)) {
+    res.setHeader("Access-Control-Allow-Origin", o);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Max-Age", "86400");
+  }
+}
+
 module.exports = async (req, res) => {
+  cors(req, res);
+  if (req.method === "OPTIONS") return res.status(204).end();
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   const send = (code, body) => res.status(code).json(body);

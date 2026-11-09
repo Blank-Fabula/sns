@@ -1,3 +1,7 @@
+/* API 서버 주소: vercel.app에서 열면 같은 주소의 /api, GitHub Pages 등 다른 주소에서 열면 Vercel 서버를 직접 부릅니다.
+   (로그인·저장본은 어느 주소에서 열어도 같은 Vercel 서버를 씁니다.) */
+const API_ORIGIN = "https://sns-mix.vercel.app";
+const API_BASE = /(^|\.)vercel\.app$/.test(location.hostname) ? "" : API_ORIGIN;
 const LABELS = { people: "사람별", youtube: "유튜브", x: "X", instagram: "인스타" };
 /* 오른쪽 "현재 작업" 카드 아래 표시되는 정보 — 여기서 바꾸면 됩니다 */
 const WEB_VERSION = "v265";
