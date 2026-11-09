@@ -80,7 +80,7 @@ function pIcon(p) {
 let loginState = {}, modalShown = false, loginAsked = false;
 // 로그인 창 자동 열기는 "내가 확인/가져오기를 누른 직후 30초" 안에, 매체마다 한 번만 합니다.
 // (로그인 창 자체나 새로고침이 다시 창을 여는 일이 없게 합니다.)
-let promptArmedAt = 0, promptedPlat = {}, loginWatch = 0;
+let promptArmedAt = 0, promptedPlat = {}, loginWatch = 0, loginWatchPlat = {}; // loginWatchPlat: 로그인 창을 연 매체(그 매체만 다시 확인)
 function armLoginPrompt() { /* 로그인 창은 이제 모달의 '로그인 하기' 버튼으로만 엽니다 */ }
 const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
 function renderLogin() {
@@ -97,10 +97,10 @@ function renderLogin() {
       const collect = settings[p] !== false;
       const cls = "lb pi pi-" + p + (!on ? " nl" : collect ? " go" : " stop");
       const tip = PLATFORM[p] + (!on ? " · 로그인이 필요합니다 (눌러서 로그인)" : collect ? " · 수집 켜짐 (눌러서 끄기)" : " · 수집 꺼짐 (눌러서 켜기)");
-      const b = el("button", { type: "button", class: cls, "aria-label": tip, title: tip, "aria-pressed": on ? String(collect) : "false" }, [pIcon(p)]);
+      const b = el("button", { type: "button", class: cls, "aria-label": tip, title: tip, "aria-pressed": on ? String(collect) : "false" });
       b.addEventListener("click", async () => {
         if (!on) {
-          loginWatch = Date.now(); // 로그인하고 돌아오면 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
+          loginWatch = Date.now(); loginWatchPlat[p] = loginWatch; // 로그인하고 돌아오면 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
           call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
           return;
         }
@@ -123,7 +123,7 @@ function renderLoginModal() {
   need.forEach((p) => {
     const b = el("button", { type: "button", class: "lb", text: "로그인 하기" });
     b.addEventListener("click", () => {
-      loginWatch = Date.now(); // 로그인 후 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
+      loginWatch = Date.now(); loginWatchPlat[p] = loginWatch; // 로그인 후 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
       call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
     });
     list.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center" }, [el("span", { text: PLATFORM[p] + " 로그인이 필요합니다" }), b]));
@@ -145,12 +145,13 @@ $("loginModal").addEventListener("click", (e) => { if (e.target === $("loginModa
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLoginModal(); closeViewer(); } });
 
 
-// 로그인 버튼을 누른 뒤 3분 동안은 15초마다 로그인 상태를 다시 확인해, 로그인이 끝나면 버튼이 녹색으로 바뀝니다.
-// 아직 로그인되지 않은 매체만 확인합니다(이미 로그인된 매체의 탭은 다시 열지 않습니다).
+// 로그인 버튼을 누른 매체는, 로그인 창에서 이 웹 화면으로 돌아왔을 때 딱 한 번만 로그인 상태를 확인합니다(주기적으로 반복하지 않고, 누르지 않은 매체의 탭은 열지 않습니다).
+// 돌아오기 전(4초 안)이나 이미 로그인된 매체는 확인하지 않습니다. 다시 확인하고 싶으면 그 매체의 버튼을 한 번 더 누르면 됩니다.
 const recheckLogin = () => {
-  if (!connected || !loginWatch || Date.now() - loginWatch > 180000) return;
-  const todo = Object.keys(LOGIN_LINK).filter((p) => !(loginState[p] && loginState[p].loggedIn === true));
+  if (!connected) return;
+  const todo = Object.keys(loginWatchPlat).filter((p) => Date.now() - loginWatchPlat[p] > 4000 && Date.now() - loginWatchPlat[p] < 30 * 60000 && !(loginState[p] && loginState[p].loggedIn === true));
+  Object.keys(loginWatchPlat).forEach((p) => { if (todo.includes(p) || (loginState[p] && loginState[p].loggedIn === true)) delete loginWatchPlat[p]; });
   if (todo.length) call("checkLogin", { platforms: todo }).catch(() => {});
 };
-setInterval(recheckLogin, 20000);
+window.addEventListener("focus", recheckLogin);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") recheckLogin(); });

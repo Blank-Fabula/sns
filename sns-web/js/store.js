@@ -147,7 +147,8 @@ async function refresh() {
   if (!loginAsked) {
     loginAsked = true;
     // 확인이 필요한(처음이거나 오래된) 매체만 확인합니다.
-    const stale = Object.keys(LOGIN_LINK).filter((p) => !loginState[p] || Date.now() - (loginState[p].at || 0) > 30 * 60000);
+    // 로그인이 안 된 것으로 확인된 매체는 2시간에 한 번만 다시 봅니다(열 때마다 탭이 뜨지 않게).
+    const stale = Object.keys(LOGIN_LINK).filter((p) => !loginState[p] || Date.now() - (loginState[p].at || 0) > (loginState[p].loggedIn === false ? 120 : 30) * 60000);
     if (stale.length) call("checkLogin", { platforms: stale }).catch(() => {});
   }
   // 바뀐 부분만 다시 그려서 화면이 깜빡이지 않게 합니다.

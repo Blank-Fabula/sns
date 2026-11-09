@@ -9,7 +9,7 @@ function vScroll(el, d) {
   const step = () => {
     const diff = vAnim.target - el.scrollTop;
     if (Math.abs(diff) < 0.5) { el.scrollTop = vAnim.target; vAnim.raf = 0; return; }
-    el.scrollTop += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.18);
+    el.scrollTop += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.13);
     vAnim.raf = requestAnimationFrame(step);
   };
   vAnim.raf = requestAnimationFrame(step);
@@ -17,7 +17,8 @@ function vScroll(el, d) {
 // 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동(스크롤바 위·글 영역 위 어디서든 같은 속도)
 function barWheel(el, dy) {
   const vb = document.getElementById("vbar"), room = vb.clientHeight - 12 - Math.min(120, vb.clientHeight - 12), max = el.scrollHeight - el.clientHeight;
-  const raw = room > 0 ? dy * max / room : dy, cap = el.clientHeight * 0.6; // 내용이 아주 길어도 휠 한 칸에 한 화면의 60%까지만(한 번에 수백 장이 새로 그려지며 렉 걸리는 것 방지)
+  const SLOW = 0.7; // 전체 스크롤 속도 배율(작을수록 느림)
+  const raw = (room > 0 ? dy * max / room : dy) * SLOW, cap = el.clientHeight * 0.6 * SLOW; // 내용이 아주 길어도 휠 한 칸에 한 화면의 60%까지만(한 번에 수백 장이 새로 그려지며 렉 걸리는 것 방지)
   vScroll(el, Math.max(-cap, Math.min(cap, raw)));
 }
 document.addEventListener("wheel", (ev) => {
@@ -25,7 +26,7 @@ document.addEventListener("wheel", (ev) => {
   const dy = ev.deltaMode === 1 ? ev.deltaY * 40 : ev.deltaY;
   // 스크롤바 칸 위에서는 휠이 글 영역(또는 설정·추적 화면)을 세로로 움직입니다
   if (ev.target.closest("#vbar")) {
-    const el = ["setPanel", "trackPanel", "grid"].map((i) => document.getElementById(i)).find((e) => e && !e.hidden && e.offsetParent !== null);
+    const el = ["setPanel", "trackPanel", "grid", "empty"].map((i) => document.getElementById(i)).find((e) => e && !e.hidden && e.offsetParent !== null);
     if (el) {
       ev.preventDefault();
       // 휠 한 칸이 막대를 같은 거리만큼 움직이도록, 내용이 길수록 한 번에 더 많이 이동
@@ -75,7 +76,7 @@ function wheelRun(row, st) {
   const step = () => {
     const diff = st.target - row.scrollLeft;
     if (Math.abs(diff) < 1) { row.scrollLeft = st.target; st.raf = 0; row.classList.remove("wheeling"); return; }
-    row.scrollLeft += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.16);
+    row.scrollLeft += Math.sign(diff) * Math.max(1, Math.abs(diff) * 0.12);
     st.raf = requestAnimationFrame(step);
   };
   st.raf = requestAnimationFrame(step);
@@ -324,7 +325,7 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
   let drag = null;
   const THUMB = 120;
   const PAD = 6; // 손잡이가 바탕 박스 끝 밖으로 튀어나오지 않게 안쪽 여백
-  const target = () => ["setPanel", "trackPanel", "grid"].map((i) => document.getElementById(i)).find((e) => e && !e.hidden && e.offsetParent !== null);
+  const target = () => ["setPanel", "trackPanel", "grid", "empty"].map((i) => document.getElementById(i)).find((e) => e && !e.hidden && e.offsetParent !== null);
   function update() {
     const el = target();
     if (!el || window.innerWidth < 861) { bar.hidden = true; return; }
@@ -401,4 +402,102 @@ $("navManage").addEventListener("click", () => { page = "manage"; applyPage(); w
   if (window.ResizeObserver) { const ro = new ResizeObserver(q); ro.observe(wc); ro.observe(lay); }
   new MutationObserver(q).observe(document.body, { attributes: true, subtree: true, attributeFilter: ["hidden"] });
   q();
+})();
+
+
+// 처음 안내: 화면을 어둡게 하고 말풍선으로 하나씩 짚어 줍니다. 로그인 후 첫 화면에서 한 번 자동으로 열리고, 왼쪽 ? 버튼으로 다시 봅니다.
+(() => {
+  const root = document.getElementById("tour"), btn = document.getElementById("navHelp");
+  if (!root || !btn) return;
+  const hole = root.querySelector(".tour-hole"), tip = root.querySelector(".tour-tip");
+  const $q = (s) => root.querySelector(s);
+  const STEPS = [
+    { t: "SNS 모아보기에 오신 걸 환영해요", d: "인스타그램·X·유튜브의 새 글을 한곳에 모아 봅니다. 화면을 하나씩 짚어 드릴게요." },
+    { sel: [".sbox"], t: "통합 검색창", d: "글 제목·내용·작성자·매체·묶음 이름으로 모아 둔 글을 바로 검색합니다. 왼쪽 동그라미는 '계정 찾기'에서 검색할 매체(인스타·X·유튜브)를 고르는 버튼이에요." },
+    { sel: ["#sGo"], t: "계정 찾기", d: "검색창에 이름을 적고 누르면(Enter도 가능) 선택한 매체에서 계정을 찾아 추적 목록에 추가할 수 있어요." },
+    { sel: ["#empty:not([hidden])", "#grid:not([hidden])"], t: "글이 모이는 곳", d: "추적 중인 계정의 새 글이 여기에 모입니다. 카드를 누르면 바로 열어 볼 수 있어요." },
+    { sel: ["#sidePeople"], t: "묶음 목록", d: "같은 사람의 인스타·X·유튜브 계정을 한 묶음으로 만들어 두면, 묶음을 골라 그 사람의 글만 볼 수 있어요." },
+    { sel: ["#tabs"], t: "매체별 보기", d: "인스타·X·유튜브 버튼으로 매체별 글만 모아 볼 수 있습니다. 숫자는 글 개수예요." },
+    { sel: ["#workCard", "header .toolbar"], t: "로그인 확인과 최신화", d: "위쪽 동그라미 버튼은 매체별 로그인 확인, '지금 최신화'는 새 글 즉시 가져오기예요. 로그인 안 된 매체는 건너뜁니다." },
+    { sel: ["#brand"], t: "로고", d: "어느 화면에서든 로고를 누르면 처음 홈 화면(전체 글)으로 돌아옵니다." },
+    { sel: ["#navHome"], t: "홈", d: "추적 중인 모든 계정의 글을 한꺼번에 보는 기본 화면이에요." },
+    { sel: ["#navFav"], t: "즐겨찾기", d: "☆를 눌러 둔 사람의 글만 모아서 봅니다." },
+    { sel: ["#navManage"], t: "추적 계정 관리", d: "추적할 계정을 추가·삭제하고 묶음을 정리하는 화면이에요. 확장이 연결되면 나타납니다." },
+    { sel: ["#navHelp"], t: "사용 설명", d: "지금 보는 이 안내예요. 언제든 눌러서 다시 볼 수 있어요." },
+    { sel: ["#themeSwitch"], pad: 6, t: "화이트/다크 모드", d: "눌러서 밝은 화면과 어두운 화면을 바꿀 수 있어요." },
+    { sel: ["#connAcct"], t: "계정 메뉴", d: "프로필 이미지 설정, 계정 관리, 수집한 글 모두 삭제, 로그아웃이 들어 있어요." },
+  ];
+  const KEY = "snsHelpSeen";
+  let list = [], idx = 0;
+  const vis = (e) => { if (!e || e.hidden) return null; const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4 && getComputedStyle(e).visibility !== "hidden" ? r : null; };
+  const rectOf = (st) => {
+    if (!st.sel) return null;
+    const rs = st.sel.map((s) => vis(document.querySelector(s))).filter(Boolean);
+    if (!rs.length) return undefined; // 보이는 대상이 없음 → 이 단계는 건너뜀
+    const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top)), r2 = Math.max(...rs.map((r) => r.right)), b = Math.max(...rs.map((r) => r.bottom));
+    return { left: l, top: t, right: r2, bottom: b, width: r2 - l, height: b - t };
+  };
+  const radiusPx = (st, r) => { const e = st.sel.map((s) => document.querySelector(s)).find((x) => vis(x)); if (!e) return 0; const v = getComputedStyle(e).borderTopLeftRadius; return v.endsWith("%") ? Math.min(r.width, r.height) * parseFloat(v) / 100 : parseFloat(v) || 0; };
+  function show() {
+    const st = list[idx], r = rectOf(st), PAD = st.pad || 0, M = 12; // 밝은 부분은 대상에 딱 맞게(여백 없음)
+    const vw = window.innerWidth, vh = window.innerHeight;
+    $q(".tour-step").textContent = idx + 1 + " / " + list.length;
+    $q(".tour-title").textContent = st.t; $q(".tour-text").textContent = st.d;
+    $q("#tourPrev").disabled = idx === 0;
+    $q("#tourNext").textContent = idx === list.length - 1 ? "완료" : "다음";
+    $q("#tourSkip").hidden = idx === list.length - 1;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    if (!r) {
+      hole.classList.add("none"); hole.style.clipPath = "none"; tip.dataset.side = "";
+      tip.style.left = Math.max(M, (vw - tw) / 2) + "px"; tip.style.top = Math.max(M, (vh - th) / 2) + "px"; return;
+    }
+    hole.classList.remove("none");
+    // 어둡게 깔린 화면에서 대상 부분만 뚫어 줍니다(여백 없이 요소 모양 그대로)
+    const rad = radiusPx(st, r) + PAD, x0 = r.left - PAD, y0 = r.top - PAD, w0 = r.width + 2 * PAD, h0 = r.height + 2 * PAD;
+    const k = Math.min(rad, w0 / 2, h0 / 2), x1 = x0 + w0, y1 = y0 + h0;
+    hole.style.clipPath = `path(evenodd, "M0 0H${vw}V${vh}H0Z M${x0 + k} ${y0}H${x1 - k}A${k} ${k} 0 0 1 ${x1} ${y0 + k}V${y1 - k}A${k} ${k} 0 0 1 ${x1 - k} ${y1}H${x0 + k}A${k} ${k} 0 0 1 ${x0} ${y1 - k}V${y0 + k}A${k} ${k} 0 0 1 ${x0 + k} ${y0}Z")`;
+    // 말풍선 위치: 오른쪽 → 왼쪽 → 아래 → 위 순서로 들어가는 곳에 놓습니다
+    const gap = 16, cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const opts = [
+      ["right", r.right + PAD + gap, cy - th / 2, vw - (r.right + PAD + gap) >= tw + M],
+      ["left", r.left - PAD - gap - tw, cy - th / 2, r.left - PAD - gap - tw >= M],
+      ["bottom", cx - tw / 2, r.bottom + PAD + gap, vh - (r.bottom + PAD + gap) >= th + M],
+      ["top", cx - tw / 2, r.top - PAD - gap - th, r.top - PAD - gap - th >= M],
+    ];
+    let pick = opts.find((o) => o[3]);
+    if (!pick) pick = ["bottom", cx - tw / 2, vh - th - M, true]; // 어디에도 안 들어가면 화면 아래쪽에 겹쳐 둡니다
+    const x = Math.min(vw - tw - M, Math.max(M, pick[1])), y = Math.min(vh - th - M, Math.max(M, pick[2]));
+    tip.dataset.side = pick[0];
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+    tip.style.setProperty("--ax", Math.min(tw - 20, Math.max(20, cx - x)) + "px");
+    tip.style.setProperty("--ay", Math.min(th - 20, Math.max(20, cy - y)) + "px");
+  }
+  const step = (d) => {
+    let n = idx + d;
+    while (n >= 0 && n < list.length && rectOf(list[n]) === undefined) n += d;
+    if (n < 0) return;
+    if (n >= list.length) return close();
+    idx = n; show();
+  };
+  function open() {
+    list = STEPS.filter((s) => rectOf(s) !== undefined);
+    idx = 0; root.hidden = false; show(); $q("#tourNext").focus();
+  }
+  function close() { root.hidden = true; try { localStorage.setItem(KEY, "1"); } catch (e) {} }
+  btn.addEventListener("click", open);
+  $q("#tourNext").addEventListener("click", () => step(1));
+  $q("#tourPrev").addEventListener("click", () => step(-1));
+  $q("#tourSkip").addEventListener("click", close);
+  root.addEventListener("click", (e) => { if (e.target === root || e.target === hole) { /* 바깥 클릭은 무시(실수로 닫히지 않게) */ } });
+  document.addEventListener("keydown", (e) => {
+    if (root.hidden) return;
+    if (e.key === "Escape") close(); else if (e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); step(1); } else if (e.key === "ArrowLeft") step(-1);
+  });
+  window.addEventListener("resize", () => { if (!root.hidden) show(); });
+  let seen = false;
+  try { seen = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  // 로그인(또는 서버 없이 연결)이 끝난 첫 화면에서 한 번만 자동으로 엽니다. 로그인 화면 위에는 띄우지 않습니다.
+  const au = document.getElementById("acctUser");
+  const maybe = () => { if (!seen && au && !au.hidden) { seen = true; setTimeout(open, 700); } };
+  if (au) { new MutationObserver(maybe).observe(au, { attributes: true, attributeFilter: ["hidden"] }); setTimeout(maybe, 600); }
 })();

@@ -469,7 +469,7 @@ function renderList() {
       g.appendChild(el("p", { class: "hint", text: "아직 묶음이 없습니다. 왼쪽 '추적 계정'에서 같은 사람의 유튜브·X·인스타 계정에 같은 묶음 이름을 지정하면, 여기서 그 사람 기준으로 모아 볼 수 있습니다." }));
       $("empty").hidden = true;
       // 묶음이 하나도 없을 때도 오른쪽 사람 목록 카드를 같은 자리에 비어 있는 채로 보여줍니다
-      if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 사람" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
+      if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 묶음" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
       return;
     }
     const platOf = (it) => (it.source.startsWith("youtube") ? "youtube" : it.source);
@@ -488,14 +488,14 @@ function renderList() {
       if (!rows.length) {
         g.appendChild(el("p", { class: "hint", text: "즐겨찾기한 사람이 없습니다. 홈의 사람 이름 옆 ☆를 눌러 추가하세요." })); $("empty").hidden = true;
         // 오른쪽 사람 목록 카드도 같은 자리에 비어 있는 채로 보여줍니다(즐겨찾기가 생기면 여기에 뜸)
-        if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 사람" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
+        if (document.documentElement.getAttribute("data-design") === "bento") { const eb = el("div", { class: "pbar" }); eb.appendChild(el("button", { type: "button", class: "active" }, [el("span", { text: "모든 묶음" }), el("span", { class: "n", text: "0" })])); const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(eb); }
         return;
       }
     }
     if (personFocus && !rows.some((r) => r.name === personFocus)) personFocus = "";
     const bar = el("div", { class: "pbar" });
     const chip = (label, n, active, fn) => { const b = el("button", { type: "button", class: active ? "active" : "" }, [el("span", { text: label }), el("span", { class: "n", text: String(n) })]); b.addEventListener("click", fn); bar.appendChild(b); };
-    chip("모든 사람", rows.reduce((s, r) => s + r.list.length, 0), !personFocus, () => { personFocus = ""; personPlat = ""; renderList(); });
+    chip("모든 묶음", rows.reduce((s, r) => s + r.list.length, 0), !personFocus, () => { personFocus = ""; personPlat = ""; renderList(); });
     rows.forEach((r) => chip(r.name, r.list.length, personFocus === r.name, () => { personFocus = r.name; personPlat = ""; renderList(); }));
     // 벤토 디자인: 사람 목록은 오른쪽 탭 카드 아래 빈 공간에 세로로 둡니다.
     if (document.documentElement.getAttribute("data-design") === "bento") { const sp = $("sidePeople"); sp.hidden = false; sp.appendChild(bar); } else g.appendChild(bar);
