@@ -398,7 +398,7 @@
         const act = (j.onResponseReceivedActions || j.onResponseReceivedEndpoints || [])[0];
         batch = act && act.appendContinuationItemsAction ? act.appendContinuationItemsAction.continuationItems : null;
         if (!batch) return { pages, total, why: "목록 끝(데이터 요청)" };
-        await new Promise((r) => setTimeout(r, 250 + Math.random() * 250));
+        await new Promise((r) => setTimeout(r, 100 + Math.random() * 120));
       }
       return { pages, total, why: "목록 끝(데이터 요청)" };
     } catch (e) {

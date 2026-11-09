@@ -249,9 +249,9 @@ async function visitSearch(url, q) {
   let w;
   // 처음에는 포커스를 가져오지 않는 작은 창으로 엽니다. 가려져서 화면이 안 그려지면 페이지가 요청해 그때만 앞으로 가져옵니다.
   try {
-    w = await chrome.windows.create({ url, type: "popup", focused: false, width: 420, height: 600 });
+    w = await chrome.windows.create({ url, type: "popup", focused: false, width: 840, height: 300 });
   } catch (e) {
-    w = await chrome.windows.create({ url, focused: false, width: 420, height: 600 });
+    w = await chrome.windows.create({ url, focused: false, width: 840, height: 300 });
   }
   const tabId = w.tabs[0].id;
   searchWins.set(tabId, w.id);
@@ -305,7 +305,13 @@ async function checkLogins(only) {
   try {
     for (const [platform, url] of Object.entries(LOGIN_URLS)) {
       if (Array.isArray(only) && !only.includes(platform)) continue;
+      const startedAt = Date.now();
       try { await visitLogin(url); } catch (e) { /* 다음 매체로 */ }
+      try { // 탭이 로그인 상태를 알려 주지 못했어도 확인한 시각은 남깁니다(알 수 없음 = null)
+        const d = await chrome.storage.local.get("loginState");
+        const st = d.loginState || {};
+        if (!st[platform] || (st[platform].at || 0) < startedAt) { st[platform] = { loggedIn: st[platform] ? st[platform].loggedIn : null, at: Date.now() }; await chrome.storage.local.set({ loginState: st }); }
+      } catch (e) { /* 무시 */ }
     }
   } finally {
     loginChecking = false;
@@ -322,9 +328,9 @@ async function visitDeep(url, via) {
     // 조용히: 포커스를 가져오지 않고, 작게, 화면 밖 구석에 엽니다. (실패하면 일반 위치로 다시 시도)
     let w;
     try {
-      w = await chrome.windows.create({ url, type: "normal", focused: false, width: 420, height: 420 });
+      w = await chrome.windows.create({ url, type: "normal", focused: false, width: 840, height: 300 });
     } catch (e) {
-      w = await chrome.windows.create({ url, type: "normal", focused: false, width: 420, height: 420 });
+      w = await chrome.windows.create({ url, type: "normal", focused: false, width: 840, height: 300 });
     }
     deepWin = { windowId: w.id, tabId: w.tabs[0].id };
   } else {
@@ -388,11 +394,17 @@ async function runCheck({ mode, only }) {
   try {
     cancelRequested = false;
     await setStatus({ running: true, message: "", closed: false, paused: false });
-    const data = await chrome.storage.local.get(["tracked", "settings"]);
+    const data = await chrome.storage.local.get(["tracked", "settings", "loginState"]);
     let tracked = (data.tracked || []).slice(0, MAX_TRACKED);
     if (only) tracked = tracked.filter((t) => t.id === only);
     const settings = data.settings || {};
-    const on = (platform) => settings[platform] !== false;
+    const logins = data.loginState || {};
+    const skippedLogin = new Set(); // 로그인이 안 된 것으로 확인된 매체: 탭을 열어도 로그인 화면만 뜨므로 건너뜁니다
+    const on = (platform) => {
+      if (settings[platform] === false) return false;
+      if (logins[platform] && logins[platform].loggedIn === false) { skippedLogin.add(platform); return false; }
+      return true;
+    };
 
     const countItems = async () => {
       await queue; // 저장 대기열이 비워진 뒤 센다
@@ -407,7 +419,7 @@ async function runCheck({ mode, only }) {
       if (!on(t.platform)) continue;
       const who = t.kind === "feed" ? t.platform + " 피드" : t.handle ? "@" + t.handle : t.channelId;
       const own = [7, 14, 30, 60].includes(t.days) ? t.days : days;
-      for (const url of pageUrls(t)) targets.push({ who, url, via: t.kind === "feed" ? "" : t.id, days: own });
+      for (const url of pageUrls(t)) targets.push({ who, url, plat: t.platform, via: t.kind === "feed" ? "" : t.id, days: own });
     }
 
     let visited = 0, closedByUser = false;
@@ -441,12 +453,13 @@ async function runCheck({ mode, only }) {
         errors.push(String(e.message || e));
         if (mode === "deep") break; // 확인 창이 닫혔다면 중단합니다
       }
-      if (i < targets.length - 1) await sleep(GAP_MIN_MS + Math.random() * GAP_JITTER_MS);
+      if (i < targets.length - 1) await sleep(targets[i].plat === "instagram" ? GAP_MIN_MS + Math.random() * GAP_JITTER_MS : 400 + Math.random() * 400); // 인스타그램만 천천히
     }
 
     const added = Math.max(0, (await countItems()) - before);
     const parts = [`최근 ${days}일 · 페이지 ${visited}곳 확인 · 새 글 ${added}건`];
     if (detail.length) parts.push(detail.join(" / "));
+    if (skippedLogin.size) parts.push("로그인 필요로 건너뜀: " + [...skippedLogin].map((k) => ({ youtube: "유튜브", x: "X", instagram: "인스타" }[k] || k)).join(", "));
     if (errors.length) parts.push(`오류 ${errors.length}건: ${errors[0]}`);
     await setStatus({ running: false, lastRun: Date.now(), message: parts.join(" · "), closed: closedByUser && mode === "deep", paused: false });
   } catch (e) {
@@ -671,23 +684,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return;
   }
   if (msg.type === "needFocus" && fromContent) {
-    // 가려진 창은 화면이 안 그려지므로, 아주 작게 만들어 화면 오른쪽 아래 구석에 앞으로 가져옵니다.
+    // 가려진 창은 화면이 안 그려지므로, 아주 작게 만들어 화면 가운데 아래에 앞으로 가져옵니다.
     const isDeep = !!(deepWin && deepWin.tabId === sender.tab.id);
     const wid = isDeep ? deepWin.windowId : searchWins.get(sender.tab.id);
     if (wid) {
       // 이름 검색 창은 아주 작게, 글 수집 창은 화면이 정상 배치되도록 조금 더 크게(그래도 구석에) 둡니다.
-      const W = 420; // 수집 창은 가로·세로 모두 최소 크기(브라우저가 허용하는 최소보다 작게는 안 됩니다)
-      let H = 420;
+      const W = 840; // 가로로 길고 세로로 짧게. 수집 창은 가로·세로 모두 최소 크기(브라우저가 허용하는 최소보다 작게는 안 됩니다)
+      let H = 300;
       if (typeof msg.sh === "number" && msg.sh > 200) H = Math.min(H, Math.round(msg.sh - 60)); // 작은 화면이면 화면 높이에 맞춥니다
       const num = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
       const sw = num(msg.sw), sh = num(msg.sh);
       // 주의: windows.update에 focused:false를 주면 크롬이 '다음 창'을 앞으로 가져옵니다(다른 프로그램 창이 튀어나옴).
       // 그래서 위치만 옮길 때는 focused 값을 아예 넣지 않습니다.
       const base = msg.place ? { width: W, height: H } : { focused: true, width: W, height: H };
-      const left = Math.round(num(msg.sl) + sw - W);
+      const left = Math.round(num(msg.sl) + (sw - W) / 2); // 화면 가운데 아래
       const bottom = Math.round(num(msg.st) + sh);
-      // 오른쪽 아래 구석. 크롬은 창의 절반 이상이 화면 안에 있어야 위치를 받아 주므로, 절반을 조금 넘게만 보이게(아래 약 45%는 화면 밖) 내립니다.
-      // 거부되면 완전히 화면 안의 오른쪽 아래로, 그것도 안 되면 위치는 두고 앞으로만 가져옵니다.
+      // 화면 가운데 아래. 크롬은 창의 절반 이상이 화면 안에 있어야 위치를 받아 주므로, 절반을 조금 넘게만 보이게(아래 약 45%는 화면 밖) 내립니다.
+      // 거부되면 완전히 화면 안의 가운데 아래로, 그것도 안 되면 위치는 두고 앞으로만 가져옵니다.
       const tries = [];
       if (sw > W && sh > H) {
         tries.push({ ...base, left, top: bottom - Math.ceil(H * 0.55) });
