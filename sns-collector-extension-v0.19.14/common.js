@@ -226,13 +226,13 @@
           }
         }
         // 첫 글이 화면에 나타나는 즉시 시작합니다(최대 약 6초 대기).
-        for (let w = 0; w < 12; w++) {
-          await sleep(500);
+        for (let w = 0; w < 40; w++) {
+          await sleep(250);
           let n = 0;
           try { n = (scan() || []).length; } catch (e) { /* 무시 */ }
           if (n > 0) break;
         }
-        let idle = 0, lastHeight = -1, lastCount = -1, why = "한도", scrolls = 0;
+        let idle = 0, lastHeight = -1, lastCount = -1, why = "한도", scrolls = 0, slow = 1;
         // 수집창이 다른 창에 가려져(hidden) 화면이 안 그려지면, 창을 앞으로 끌어오지 않고 수집을 일시정지합니다.
         // 웹 화면이 안내 모달(이어서 수집/닫기)을 띄우고, 창이 다시 보이면 이어서 수집합니다. 멈춘 시간은 제한 시간에 넣지 않습니다.
         const waitVisible = async () => {
@@ -276,7 +276,25 @@
           } else {
             window.scrollBy({ top: Math.round(window.innerHeight * 0.9), behavior: "instant" });
           }
-          await sleep((deep ? 1200 : 900) + Math.random() * 500);
+          // 고정 시간만 기다리지 않고, 새 글이 실제로 불러와질 때까지 기다립니다(빠른 환경에선 곧바로, 느린 컴퓨터·인터넷에선 그만큼 더).
+          // 최소 대기는 사이트 부담을 줄이는 값(인스타그램은 더 길게)이고, 최대 대기는 느릴수록 자동으로 늘어납니다.
+          {
+            const minMs = source === "instagram" ? (deep ? 850 : 700) : (deep ? 450 : 350);
+            const maxMs = Math.min(15000, (source === "instagram" ? 2200 : 1800) * slow);
+            const h0 = document.documentElement.scrollHeight, c0 = (() => { try { return (scan() || []).length; } catch (e) { return 0; } })();
+            const t0 = Date.now();
+            await sleep(minMs + Math.random() * 250);
+            let grew = false;
+            while (Date.now() - t0 < maxMs) {
+              let n = c0;
+              try { n = (scan() || []).length; } catch (e) { /* 무시 */ }
+              if (document.documentElement.scrollHeight !== h0 || n !== c0) { grew = true; break; }
+              if (document.visibilityState === "hidden") break; // 가려진 창은 기다려도 안 그려집니다(위에서 일시정지 처리)
+              await sleep(150);
+            }
+            if (grew) slow = Math.min(6, Math.max(1, (Date.now() - t0) / 900)); // 실제로 걸린 시간에 맞춰 다음 대기 한도를 정함(끝 도달 시 헛대기가 늘지 않게, 못 받았을 땐 그대로)
+            if (grew) await sleep(120); // 불러온 직후 잠깐 더 안정될 시간
+          }
         }
         collectOnce();
         diag = { why: why + " · 위치 " + Math.round((document.scrollingElement || document.documentElement).scrollTop || 0) + "px", scrolls };
