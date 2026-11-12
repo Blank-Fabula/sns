@@ -34,7 +34,7 @@ input[type="search"] { width: 200px; }
 .res .t { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 .res .t b { font-weight: 500; overflow-wrap: anywhere; }
 .res .t span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.loginbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 8px; }
+
 .lb { text-decoration: none; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 6px; padding: 5px 12px; font-weight: 500; white-space: nowrap; cursor: pointer; }
 .loginbar .lb { display: inline-flex; align-items: center; text-decoration: none; color: var(--accent-fg); background: var(--accent); border-radius: 6px; padding: 5px 12px; font-weight: 500; }
 .modal-back { position: fixed; inset: 0; z-index: 20; background: rgba(10, 18, 20, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -145,8 +145,6 @@ html:has(#viewer:not([hidden])), body:has(#viewer:not([hidden])) { overflow: hid
 .selx{border:0;background:none;color:inherit;cursor:pointer;padding:0 2px;font:inherit;line-height:1;opacity:.85}
 .selx:hover{opacity:1}
 
-header .loginbar{padding:0}
-
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 0 8px}
 .toolbar .loginbar{padding:0}
 
@@ -154,19 +152,13 @@ header .loginbar{padding:0}
 
 /* 매체 아이콘 버튼: 둥근 네모, 상태는 테두리 색으로 */
 .loginbar{display:flex;gap:8px}
-.lb.pi{position:relative;width:44px;height:44px;padding:0!important;border-radius:12px;background:var(--card)!important;border:3px solid var(--line)!important;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
-.lb.pi .pg{display:block;width:100%;height:100%;font-size:18px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center}
-.lb.pi .pg img{width:100%;height:100%;object-fit:cover;display:block}
-.lb.pi.go{border-color:var(--ok)!important}
+
 .lb.pi.stop{border-color:var(--danger)!important}
-.lb.pi.stop .pg{filter:grayscale(.6)}
-.lb.pi.nl{border-color:#9aa5aa!important;cursor:pointer}
+
 .lb.pi.nl::after{content:"";position:absolute;inset:0;background:rgba(120,130,135,.72)}
 .lb.pi:hover{filter:brightness(1.05)}
 .lb.pi:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.lb.pi-youtube .pg:not(:has(img)){background:#e02d2d;color:#fff}
-.lb.pi-x .pg:not(:has(img)){background:#111;color:#fff}
-.lb.pi-instagram .pg:not(:has(img)){background:linear-gradient(135deg,#f9a03c,#e1306c 55%,#6b4fd8);color:#fff}
+
 .themebtn{width:40px;height:40px;padding:0;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
 /* 계정 버튼: 우상단, 누르면 메뉴(계정 관리 · 로그아웃) */
 .acctwrap{position:relative;margin-left:8px}
@@ -227,10 +219,7 @@ header .loginbar{padding:0}
 
 /* 지금 최신화: 새로고침 화살표 아이콘 버튼 (진행 중에는 빙글빙글) */
 .refreshbtn{width:44px;height:44px;padding:0;border-radius:12px;display:inline-flex;align-items:center;justify-content:center}
-.refreshbtn svg{display:block}
-.refreshbtn.busy svg{animation:snsspin 1s linear infinite}
-@keyframes snsspin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.refreshbtn.busy svg{animation-duration:3s}}
+
 /* 모든 스크롤바 숨김 (스크롤은 그대로 동작합니다) */
 *{scrollbar-width:none!important;-ms-overflow-style:none}
 *::-webkit-scrollbar{display:none!important;width:0;height:0}
@@ -240,21 +229,17 @@ html, html * { scrollbar-width: none !important; -ms-overflow-style: none !impor
 html::-webkit-scrollbar, html *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 
 /* 왼쪽 위: 매체 아이콘 3개 + 새로고침을 2x2로 */
-header .toolbar{display:grid;grid-template-columns:repeat(2,40px);grid-auto-rows:40px;gap:6px;padding:0;align-items:stretch}
-header .toolbar .loginbar{display:contents}
-header .toolbar .lb.pi,header .toolbar .refreshbtn{width:40px;height:40px}
+
 header h1{margin:0 auto 0 4px}
 [hidden]{display:none!important}
 /* 2x2 순서: 인스타 | X / 유튜브 | 새로고침 */
 header .toolbar .pi-instagram{order:1}
 header .toolbar .pi-x{order:2}
 header .toolbar .pi-youtube{order:3}
-header .toolbar .refreshbtn{order:4}
+
 /* 2x2 버튼: 간격은 좁게, 뒤에 둥근 네모 박스 */
-header .toolbar{gap:3px}
-header .toolbar:has(.lb.pi){background:var(--soft);border:1px solid var(--line);border-radius:18px;padding:5px}
+
 /* 1x4 한 줄 */
-header .toolbar{grid-template-columns:repeat(4,40px)}
 
 /* 통합 검색창: 아이콘 박스 바로 오른쪽에서 남는 폭을 차지 */
 header h1{margin:0}
@@ -278,7 +263,6 @@ header .sbox #q{flex:1;min-width:0;width:auto;max-width:none;height:100%;border:
 .sopt:hover{background:color-mix(in srgb,var(--accent) 12%,var(--card))}
 .sopt .nm{flex:1}
 .sopt .ck{width:16px;color:var(--ok);font-weight:700}
-
 
 .sgo{flex:none;height:100%;width:40px;padding:0;border:0;border-left:1px solid var(--line);border-radius:0 10px 10px 0;background:var(--soft);display:inline-flex;align-items:center;justify-content:center}
 .sgo:hover{background:color-mix(in srgb,var(--accent) 14%,var(--soft))}
@@ -388,14 +372,10 @@ aside:not(:has(> section:not([hidden]))){display:none}
 header .acctwrap{margin-left:auto}
 
 /* 연결 상태 점: 새로고침 버튼 가운데 */
-.refreshbtn{position:relative}
-.refreshbtn .dot{position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;box-shadow:0 0 0 2px #fff}
-.refreshbtn.off{opacity:.6}
 
 /* 새로고침 버튼: 무채색 배경 + 진한 화살표 */
 header .toolbar .refreshbtn,header .toolbar .refreshbtn:hover:not(:disabled){background:var(--soft);color:var(--fg);border:2px solid var(--muted)}
-header .toolbar .refreshbtn svg{width:26px;height:26px;stroke-width:2.6;color:var(--fg)}
-.refreshbtn .dot{width:7px;height:7px;margin:-3.5px 0 0 -3.5px;box-shadow:0 0 0 2px var(--soft)}
+
 .namelink{cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:4px;transition:text-decoration-color .15s}
 .namelink:hover,.namelink:focus-visible{text-decoration-color:currentColor;outline:0}
 
@@ -408,3 +388,23 @@ header .toolbar .refreshbtn svg{width:26px;height:26px;stroke-width:2.6;color:va
 /* 기간 선택 창이 검색 결과 목록 위에 오도록 */
 .modal-back{z-index:100}
 .pbtn.on{border-color:var(--accent)}
+/* 화면 아래쪽 알림(오류·안내): 어느 화면·창 위에서도 보입니다 */
+#toasts{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;align-items:center;width:min(560px,calc(100vw - 32px));pointer-events:none}
+#toasts .toast{pointer-events:auto;display:flex;gap:10px;align-items:flex-start;width:100%;background:#2a2928;color:#fff;border-radius:12px;padding:10px 10px 10px 16px;font-size:14px;line-height:1.5;box-shadow:0 8px 28px rgba(0,0,0,.28);animation:toastIn .16s ease-out}
+#toasts .toast.err{background:#8f2f22}
+#toasts .toast span{flex:1;word-break:keep-all;overflow-wrap:anywhere}
+#toasts .toast .tx{flex:none;border:0;background:transparent;color:inherit;opacity:.75;font-size:18px;line-height:1;padding:2px 6px}
+#toasts .toast .tx:hover{opacity:1}
+#toasts .toast .ta{flex:none;align-self:center;border:0;border-radius:999px;background:#fff;color:#2a2928;font:inherit;font-size:13px;font-weight:700;padding:4px 12px;cursor:pointer}
+#toasts .toast .ta:hover{background:#f0eeea}
+#toasts .toast.act{align-items:center}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.segwrap{margin:0 0 10px}
+/* 글 보기: X는 글 폭에 맞춘 좁은 창(빈 여백 없이), 인스타는 게시물 폭에 맞춤 */
+.viewer.vx{width:min(600px,100%)}
+.viewer.vig{width:min(560px,100%)}
+.viewer.vx .vb{padding:14px 12px 18px;align-items:flex-start}
+.viewer .xwrap{width:100%;max-width:550px;margin:0 auto}
+.viewer .xwrap .twitter-tweet{margin:0 auto !important}
+.viewer .xwrap > .hint{padding:24px;text-align:center}
+.viewer.vx iframe,.viewer.vig iframe{max-width:550px;margin:0 auto;border-radius:12px}

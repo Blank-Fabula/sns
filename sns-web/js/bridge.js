@@ -1,36 +1,48 @@
-/* ---------- 확장 연결 (window.postMessage → 확장의 연결 스크립트) ---------- */
-let seq = 0;
-const pending = new Map();
-window.addEventListener("message", (ev) => {
-  if (ev.source !== window || !ev.data || ev.data.sns !== "reply") return;
-  const p = pending.get(ev.data.id);
-  if (!p) return;
-  pending.delete(ev.data.id);
-  clearTimeout(p.timer);
-  const hint = /통신하지 못했습니다|context invalidated/i.test(ev.data.error || "") ? " 확장을 다시 로드했다면 이 페이지를 새로고침(F5)한 뒤 다시 연결하세요." : "";
-  ev.data.ok ? p.resolve(ev.data.result) : p.reject(new Error((ev.data.error || "확장이 응답하지 않았습니다.") + hint));
-});
-function call(op, payload, waitMs) {
-  return new Promise((resolve, reject) => {
-    const id = ++seq;
-    const timer = setTimeout(() => {
-      pending.delete(id);
-      reject(new Error("확장 프로그램이 응답하지 않습니다. 확장이 설치되어 있고 이 페이지가 확장의 허용 목록에 있는지 확인하세요."));
-    }, waitMs || 4000);
-    pending.set(id, { resolve, reject, timer });
-    window.postMessage({ sns: "call", id, token, op, payload: payload || {} }, "*");
-  });
+/* ---------- 서버 연결 : 글 목록·추적 계정·수집 요청을 서버의 /api/call로 보냅니다 ---------- */
+// call(op, payload, waitMs) → 서버가 돌려준 result. op 종류는 server/api_call.py를 보세요.
+// waitMs: 응답을 기다릴 최대 시간(기본 10초). 계정 검색·게시물 읽기는 LONG_WAIT로 길게 줍니다.
+const CHANGING_OPS = ["set", "checkNow", "clearItems", "cancelCheck"];
+async function call(op, payload, waitMs, opts) {
+  const used = sess;
+  const r = await apiPost("/api/call", { session: used, op, payload: payload || {} }, waitMs, opts);
+  if (r.status === 401) throw sessionLost(used);
+  let j;
+  try { j = await r.json(); } catch (e) { const er = new Error("서버에 연결할 수 없습니다(서버 PC가 꺼져 있을 수 있습니다)."); er.offline = true; throw er; }
+  if (!j.ok) throw new Error(j.error || "요청에 실패했습니다.");
+  // 내용을 바꾸는 요청 뒤에는 곧바로 서버 상태를 다시 읽습니다(평소 다시 읽는 간격이 30초라서).
+  // 수집이 시작됐으면 다시 읽는 간격을 3초로 바꿉니다.
+  if (CHANGING_OPS.includes(op) && connected) {
+    setTimeout(() => refresh().then(() => { if (checkStatus && checkStatus.running) startPolling(); }).catch(() => {}), 300);
+  }
+  return j.result;
+}
+// 로그인 세션이 끝났을 때(다른 기기에서 비밀번호 변경, 30일 지남 등): 다시 로그인하도록 로그인 화면으로 돌아갑니다.
+// 그 사이 이 기기에서 세션을 새로 받았다면(비밀번호 변경 직후 등) 옛 요청의 실패는 무시합니다.
+function sessionLost(used) {
+  const er = new Error("로그인이 필요합니다.");
+  er.authLost = true;
+  if (used && used === sess) {
+    clearTimeout(polling); pollGen++;
+    try { sessionStorage.setItem("snsAuthMsg", "로그인이 만료되었습니다. 다시 로그인해 주세요."); } catch (e) {}
+    setSess("");
+    location.reload();
+  }
+  return er;
 }
 
 // 화면 전환: 홈(글 모아보기) ↔ 추적 계정 관리(따로 분리된 화면)
 let page = "home";
 function applyPage() {
-  if (!connected && page === "manage") page = "home";
-  const manage = connected && page === "manage", sett = false;
+  if (!connected && (page === "manage" || page === "community" || page === "admin")) page = "home";
+  if (page === "admin" && !window.__isAdmin) page = "manage";
+  const manage = connected && page === "manage", comm = connected && page === "community", adm = connected && page === "admin";
   $("trackPanel").hidden = !manage;
-  document.querySelector(".layout main").hidden = manage || sett;
+  $("communityPanel").hidden = !comm;
+  $("adminPanel").hidden = !adm;
+  document.querySelector(".layout main").hidden = manage || adm;
+  $("navCommunity").classList.toggle("on", comm);
   $("navManage").hidden = !connected;
-  $("navHome").classList.toggle("on", !manage && !sett && page !== "fav");
+  $("navHome").classList.toggle("on", !manage && !comm && !adm && page !== "fav");
   $("navFav").classList.toggle("on", page === "fav");
   $("navManage").classList.toggle("on", manage);
 }
@@ -38,119 +50,71 @@ function setConn(ok) {
   connected = ok;
   if (!ok) { $("loginBar").hidden = true; }
   $("connectPanel").hidden = ok;
-  // 저장된 연결 코드로 자동 연결됐지만 로그인 세션이 없는 경우에도 계정 버튼은 보여서(설정·로그아웃) 다시 로그인할 수 있게 합니다.
-  $("connAcct").hidden = !ok;
-  if (ok && !$("menuWho").textContent.trim()) $("menuWho").textContent = "로그인 정보 없음 (연결만 된 상태)";
+  $("connAcct").hidden = !ok && !sess;
   applyPage();
   $("checkNow").hidden = false; $("checkNow").classList.toggle("off", !ok); // 새로고침 버튼은 항상 보이고, 가운데 점이 연결 상태(초록=연결됨)를 알려 줍니다
   updateConnText();
 }
 function updateConnText() {
   $("dot").className = "dot" + (connected ? " on" : "");
-  const note = saveNote ? " · " + saveNote : "";
-  if (connected) $("connText").textContent = "확장 프로그램과 연결됨 · 글 " + items.length + "건" + note;
-  else if (savedAt) $("connText").textContent = "저장본을 보는 중 · 글 " + items.length + "건 · 마지막 동기화 " + relative(savedAt) + " (확장을 연결하면 새로 갱신됩니다)";
-  else $("connText").textContent = "확장 프로그램과 연결되지 않았습니다." + note;
+  if (connected) $("connText").textContent = "서버와 연결됨 · 글 " + items.length + "건";
+  else $("connText").textContent = sess ? "서버와 연결되지 않았습니다. 잠시 뒤 다시 시도합니다." : "로그인하면 서버와 연결됩니다.";
   $("dot").title = $("connText").textContent;
 }
 
-/* ---------- 매체별 로그인 상태 ---------- */
-const LOGIN_LINK = { youtube: "https://www.youtube.com/", x: "https://x.com/i/flow/login", instagram: "https://www.instagram.com/accounts/login/" };
+/* ---------- 매체 아이콘 · 서버 테스트 계정 로그인 상태 ---------- */
+const LOGIN_PLATS = ["youtube", "x", "instagram"];
 const PGLYPH = { youtube: "▶", x: "X", instagram: "◎" };
 // 각 매체의 실제 아이콘(파비콘)을 불러옵니다. 못 불러오면 기호로 대신합니다.
 const PLOCAL = { youtube: "img/youtube.png", x: "img/x.png", instagram: "img/instagram.png" };
 const PDOMAIN = { youtube: "youtube.com", x: "x.com", instagram: "instagram.com" };
 function pIcon(p) {
-  const wrap = el("span", { class: "pg" });
+  const wrap = el("span", { class: "pg", "data-p": p });
   const d = PDOMAIN[p];
   // 여러 곳에서 차례로 시도합니다. 모두 실패하면 기호로 대신합니다.
   const srcs = [
     PLOCAL[p],
     "https://www.google.com/s2/favicons?domain=" + d + "&sz=128",
     "https://icons.duckduckgo.com/ip3/" + d + ".ico",
-    "https://" + (p === "youtube" ? "www.youtube.com" : p === "instagram" ? "www.instagram.com" : "x.com") + "/favicon.ico",
   ];
   let i = 0;
   const img = el("img", { alt: "", referrerpolicy: "no-referrer", draggable: "false" });
-  img.addEventListener("error", () => { if (++i < srcs.length) img.src = srcs[i]; else { img.remove(); wrap.textContent = PGLYPH[p]; } });
+  img.addEventListener("error", () => { if (++i < srcs.length) img.src = srcs[i]; else { img.remove(); wrap.innerHTML = PGSVG[p] || ""; } });
   img.src = srcs[0];
   wrap.appendChild(img);
   return wrap;
 }
-let loginState = {}, modalShown = false, loginAsked = false;
-// 로그인 창 자동 열기는 "내가 확인/가져오기를 누른 직후 30초" 안에, 매체마다 한 번만 합니다.
-// (로그인 창 자체나 새로고침이 다시 창을 여는 일이 없게 합니다.)
-let promptArmedAt = 0, promptedPlat = {}, loginWatch = 0;
-function armLoginPrompt() { /* 로그인 창은 이제 모달의 '로그인 하기' 버튼으로만 엽니다 */ }
-const needLogin = () => Object.keys(LOGIN_LINK).filter((p) => loginState[p] && loginState[p].loggedIn === false);
+let loginState = {}, loginAsked = false;
+// 서버 테스트 계정이 로그인되어 있지 않아 수집할 수 없는 매체. 유튜브 채널은 로그인 없이도 수집됩니다.
+const loggedOut = (p) => p !== "youtube" && !!(loginState[p] && loginState[p].loggedIn === false);
+const LOGIN_HELP = (p) => "서버의 " + PLATFORM[p] + " 테스트 계정이 로그인되어 있지 않아 " + PLATFORM[p] + " 글을 모을 수 없습니다. 관리자가 서버 PC에서 login_setup.bat으로 로그인해야 합니다.";
+let loginRecheckAt = {};
 function renderLogin() {
-  const need = connected ? needLogin() : [];
   const bar = $("loginBar");
   bar.textContent = "";
   bar.hidden = !connected;
-  if (connected) {
-    // 매체 아이콘 버튼
-    //  · 로그인 안 됨: 회색 테두리 + 반투명 회색이 아이콘을 덮음 (누르면 로그인 창)
-    //  · 로그인 됨: 수집 켜짐 = 초록 테두리 / 수집 꺼짐 = 빨간 테두리 (누를 때마다 켜고 끔)
-    Object.keys(LOGIN_LINK).forEach((p) => {
-      const on = !!(loginState[p] && loginState[p].loggedIn === true);
-      const collect = settings[p] !== false;
-      const cls = "lb pi pi-" + p + (!on ? " nl" : collect ? " go" : " stop");
-      const tip = PLATFORM[p] + (!on ? " · 로그인이 필요합니다 (눌러서 로그인)" : collect ? " · 수집 켜짐 (눌러서 끄기)" : " · 수집 꺼짐 (눌러서 켜기)");
-      const b = el("button", { type: "button", class: cls, "aria-label": tip, title: tip, "aria-pressed": on ? String(collect) : "false" }, [pIcon(p)]);
-      b.addEventListener("click", async () => {
-        if (!on) {
-          loginWatch = Date.now(); // 로그인하고 돌아오면 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
-          call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
-          return;
-        }
-        settings = { ...settings, [p]: !collect };
-        renderLogin();
-        try { await call("set", { settings }); } catch (e) { settings = { ...settings, [p]: collect }; renderLogin(); showErr(e); }
-      });
-      bar.appendChild(b);
+  if (!connected) return;
+  // 매체 아이콘 버튼
+  //  · 서버 테스트 계정이 로그인 안 됨(X·인스타): 회색 (누르면 안내 + 다시 확인)
+  //  · 그 밖: 수집 켜짐 = 초록 테두리 / 수집 꺼짐 = 빨간 테두리 (누를 때마다 켜고 끔)
+  LOGIN_PLATS.forEach((p) => {
+    const out = loggedOut(p);
+    const collect = settings[p] !== false;
+    const cls = "lb pi pi-" + p + (out ? " nl" : collect ? " go" : " stop");
+    const tip = PLATFORM[p] + (out ? " · 서버 테스트 계정 로그인 필요 (눌러서 다시 확인)" : collect ? " · 수집 켜짐 (눌러서 끄기)" : " · 수집 꺼짐 (눌러서 켜기)");
+    const b = el("button", { type: "button", class: cls, "aria-label": tip, title: tip, "aria-pressed": out ? "false" : String(collect) });
+    b.addEventListener("click", async () => {
+      if (out) {
+        toast(LOGIN_HELP(p), "error");
+        if (Date.now() - (loginRecheckAt[p] || 0) > 20000) { loginRecheckAt[p] = Date.now(); call("checkLogin", { platforms: [p] }).catch(() => {}); }
+        return;
+      }
+      settings = { ...settings, [p]: !collect };
+      renderLogin();
+      try { await call("set", { settings }); toast(PLATFORM[p] + " 수집을 " + (!collect ? "켰습니다." : "껐습니다.")); }
+      catch (e) { settings = { ...settings, [p]: collect }; renderLogin(); showErr(e); }
     });
-  }
-  if (!$("loginModal").hidden) renderLoginModal();
-}
-// 로그인이 필요한 매체 목록 모달: 매체마다 '로그인 하기' 버튼, 로그인되면 목록에서 빠집니다.
-let modalPlats = [];
-function renderLoginModal() {
-  const list = $("lmList");
-  list.textContent = "";
-  const need = modalPlats.filter((p) => !(loginState[p] && loginState[p].loggedIn === true));
-  if (!need.length) list.appendChild(el("p", { class: "hint", text: "필요한 매체가 모두 로그인되었습니다. '다시 시도'를 눌러 주세요." }));
-  need.forEach((p) => {
-    const b = el("button", { type: "button", class: "lb", text: "로그인 하기" });
-    b.addEventListener("click", () => {
-      loginWatch = Date.now(); // 로그인 후 상태가 바로 바뀌도록 잠시 동안 자주 확인합니다
-      call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener"));
-    });
-    list.appendChild(el("div", { class: "row", style: "justify-content:space-between;align-items:center" }, [el("span", { text: PLATFORM[p] + " 로그인이 필요합니다" }), b]));
+    bar.appendChild(b);
   });
 }
-function openLoginModal(plats) { modalPlats = plats; renderLoginModal(); $("loginModal").hidden = false; }
-// 로그인 링크는 확장이 별도의 작은 창으로 엽니다(실패하면 새 탭으로 엽니다).
-function loginLink(p, text, cls) {
-  // 링크(<a>)가 아니라 버튼으로 만들어, 확장이 여는 창 말고 기존 창에서 따로 열리지 않게 합니다.
-  const a = el("button", { type: "button", class: "lb " + (cls || ""), text });
-  a.addEventListener("click", () => { call("openLogin", { platform: p }).catch(() => window.open(LOGIN_LINK[p], "_blank", "noopener")); });
-  return a;
-}
-function closeLoginModal() { $("loginModal").hidden = true; }
-$("lmX").addEventListener("click", closeLoginModal);
-$("lmLater").addEventListener("click", closeLoginModal);
-$("lmRetry").addEventListener("click", () => { closeLoginModal(); startRefresh(); });
-$("loginModal").addEventListener("click", (e) => { if (e.target === $("loginModal")) closeLoginModal(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLoginModal(); closeViewer(); } });
-
-
-// 로그인 버튼을 누른 뒤 3분 동안은 15초마다 로그인 상태를 다시 확인해, 로그인이 끝나면 버튼이 녹색으로 바뀝니다.
-// 아직 로그인되지 않은 매체만 확인합니다(이미 로그인된 매체의 탭은 다시 열지 않습니다).
-const recheckLogin = () => {
-  if (!connected || !loginWatch || Date.now() - loginWatch > 180000) return;
-  const todo = Object.keys(LOGIN_LINK).filter((p) => !(loginState[p] && loginState[p].loggedIn === true));
-  if (todo.length) call("checkLogin", { platforms: todo }).catch(() => {});
-};
-setInterval(recheckLogin, 20000);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") recheckLogin(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });

@@ -1,8 +1,8 @@
-/* ---------- 계정(PHP 서버) : 로그인하면 저장된 연결 코드를 불러와 확장에 자동 설정 ---------- */
-let sess = "", pairBusy = false, avWho = "";
+/* ---------- 계정 : 아이디·비밀번호 로그인(서버 /api/auth) ---------- */
+let sess = "", avWho = "";
 // 프로필 이미지: 이 브라우저에 저장합니다(정사각형 128px로 줄여서).
 function loadAvatar() {
-  let d = ""; try { d = localStorage.getItem("snsAvatar") || ""; } catch (e) {}
+  const d = lsGet("snsAvatar", "");
   const img = $("avImg");
   if (d) { img.src = d; img.hidden = false; $("avLetter").hidden = true; } else { img.removeAttribute("src"); img.hidden = true; $("avLetter").hidden = false; }
   $("avClear").hidden = !d;
@@ -19,7 +19,7 @@ function pickAvatar(file) {
     const x = c.getContext("2d"), m = Math.min(im.naturalWidth, im.naturalHeight);
     x.drawImage(im, (im.naturalWidth - m) / 2, (im.naturalHeight - m) / 2, m, m, 0, 0, 128, 128); // 가운데를 정사각형으로 잘라 꽉 채웁니다
     URL.revokeObjectURL(url);
-    try { localStorage.setItem("snsAvatar", c.toDataURL("image/jpeg", 0.9)); } catch (e) {}
+    lsSet("snsAvatar", c.toDataURL("image/jpeg", 0.9));
     loadAvatar();
   };
   im.onerror = () => URL.revokeObjectURL(url);
@@ -29,93 +29,53 @@ try { sess = localStorage.getItem("snsSess") || ""; } catch (e) {}
 async function api(action, body) {
   const r = await apiPost("/api/auth", Object.assign({ action, session: sess }, body || {}));
   let j;
-  try { j = await r.json(); } catch (e) { throw new Error("서버 응답을 읽지 못했습니다."); }
+  // JSON이 아닌 응답(ngrok 오류 화면 등)은 서버 PC가 꺼져 있는 것으로 봅니다(로그인 상태는 유지).
+  try { j = await r.json(); } catch (e) { const er = new Error("서버에 연결할 수 없습니다."); er.offline = true; throw er; }
   if (!j.ok) throw new Error(j.error || "요청에 실패했습니다.");
   return j;
 }
 function acctSay(t, isErr) { const m = $("acctMsg"); m.textContent = t || ""; m.hidden = !t; m.className = isErr ? "error" : "hint"; }
-function setSess(s) { sess = s || ""; try { if (sess) localStorage.setItem("snsSess", sess); else localStorage.removeItem("snsSess"); } catch (e) {} }
-// "서버 없이 연결": 서버(Vercel)에 접속하지 않고, 이 브라우저가 직접 만든 연결 코드로 확장과 연결합니다.
-const LOCAL_ID = "이 브라우저";
-const HEX32 = /^[0-9a-f]{32}$/;
-function localToken() {
-  try {
-    let t = localStorage.getItem("snsLocalToken") || "";
-    if (!HEX32.test(t)) {
-      t = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
-      localStorage.setItem("snsLocalToken", t);
-    }
-    return t;
-  } catch (e) { return ""; }
+function setSess(s) { sess = s || ""; try { if (sess) localStorage.setItem("snsSess", sess); else localStorage.removeItem("snsSess"); } catch (e) {}
+  document.documentElement.classList.toggle("has-sess", !!sess); }
+// 로그인되면 화면을 로그인 상태로 바꾸고 서버에 연결합니다(글·추적 계정은 서버에 있습니다).
+// 이 브라우저에 마지막으로 로그인했던 아이디와 다르면, 그 아이디의 저장값(본 글 기록·사진·즐겨찾기)을 쓰도록 한 번 다시 엽니다.
+async function afterLogin(uid) {
+  if (uid !== UID0) {
+    let saved = false;
+    try { localStorage.setItem("snsUid", uid); saved = localStorage.getItem("snsUid") === uid; } catch (e) {}
+    if (saved) { location.reload(); return; } // 저장소를 못 쓰는 브라우저(사생활 보호 모드 등)는 다시 열지 않고 그대로 씁니다
+  }
+  $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = uid + " 로그인됨";
+  $("connAcct").hidden = false; setAvatarWho(uid); $("connOut").textContent = "로그아웃";
+  acctSay("");
+  pullSeen();
+  await connect(true);
 }
-async function pairFlow(uid, tok) {
-  if (pairBusy) return;
-  pairBusy = true;
-  try {
-    const isLocal = uid === LOCAL_ID;
-    $("acctForm").hidden = true; $("acctUser").hidden = false; $("acctWho").textContent = isLocal ? "서버 없이 연결됨 (이 브라우저 전용)" : uid + " 로그인됨";
-    if (!isLocal) { try { localStorage.setItem("snsUid", uid); } catch (e) {} }
-    $("connAcct").hidden = false; setAvatarWho(uid); $("connOut").textContent = isLocal ? "연결 해제" : "로그아웃";
-    acctSay("확장에 연결하는 중…");
-    token = tok;
-    let st;
-    try { st = await call("status", {}); }
-    catch (e) {
-      const m = (e && e.message) || "";
-      if (/응답하지 않습니다/.test(m)) throw new Error("확장 프로그램이 응답하지 않습니다. 확장이 없는 기기라면 저장된 목록만 볼 수 있습니다. 확장이 있는 PC라면 켜져 있는지 확인하고 Ctrl+Shift+R로 새로고침하세요.");
-      if (/맞지 않습니다|알 수 없는 요청/.test(m)) throw new Error("확장이 v0.11.0보다 오래된 버전입니다. 새 버전을 덮어쓰고 ⟳ 한 뒤 새로고침하세요. (확장 메시지: " + m + ")");
-      throw new Error("확장 오류: " + m);
-    }
-    if (!st || typeof st.paired !== "boolean") throw new Error("확장이 오래된 버전입니다. v0.11.0 이상으로 업데이트한 뒤 새로고침하세요.");
-    if (!st.match) {
-      if (st.paired) {
-        // 이 브라우저가 알고 있는 다른 코드(서버 계정 코드 ↔ 서버 없이 연결 코드)로 연결돼 있었다면 풀고 바꿉니다.
-        let freed = false;
-        for (const k of ["snsLocalToken", "snsToken"]) {
-          let c = ""; try { c = localStorage.getItem(k) || ""; } catch (e) {}
-          if (!HEX32.test(c) || c === tok) continue;
-          token = c;
-          try { const s2 = await call("status", {}); if (s2 && s2.match) { await call("unpair", {}); freed = true; break; } } catch (e) { /* 다음 후보 */ }
-        }
-        token = tok;
-        if (!freed) throw new Error("이 확장은 다른 코드로 이미 연결되어 있습니다. 확장 화면에서 '연결 해제'를 누른 뒤 다시 시도하세요.");
-      }
-      await call("adopt", { token: tok });
-    }
-    acctSay("");
-    await connect(tok, true);
-  } catch (e) {
-    acctSay((e && e.message) || "연결하지 못했습니다.", true);
-  } finally { pairBusy = false; }
-}
+// 예전(크롬 확장 시절) 브라우저에 남은 값 정리
+try { ["snsToken", "snsLocal", "snsLocalToken"].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
 async function initAccount() {
   $("acct").hidden = false;
+  // 세션이 끝나 로그인 화면으로 돌아온 경우 그 이유를 보여 줍니다.
+  try { const m = sessionStorage.getItem("snsAuthMsg"); if (m) { sessionStorage.removeItem("snsAuthMsg"); acctSay(m, true); if (UID0) $("acctEmail").value = UID0; } } catch (e) {}
   const doAuth = async (action) => {
     acctSay("");
+    const btns = $("acctForm").querySelectorAll("button");
+    btns.forEach((b) => { b.disabled = true; });
     try {
       const j = await api(action, { id: $("acctEmail").value.trim(), password: $("acctPw").value });
       $("acctPw").value = "";
       setSess(j.session);
-      pullSaved();
-      pairFlow(j.id, j.token);
+      await afterLogin(j.id);
     } catch (e) { acctSay(e.message, true); }
+    finally { btns.forEach((b) => { b.disabled = false; }); }
   };
   $("acctForm").addEventListener("submit", (ev) => { ev.preventDefault(); doAuth("login"); });
   $("acctSignup").addEventListener("click", () => doAuth("signup"));
-  $("acctLocal").addEventListener("click", () => {
-    const t = localToken();
-    if (!t) { acctSay("이 브라우저에서는 저장소를 쓸 수 없어 연결 코드를 만들 수 없습니다.", true); return; }
-    try { localStorage.setItem("snsLocal", "1"); } catch (e) {}
-    acctSay("");
-    pairFlow(LOCAL_ID, t);
-  });
   const doLogout = async () => {
+    if (seenQueue.size) await flushSeen().catch(() => {}); // 아직 안 보낸 본 글 기록을 먼저 보냅니다
     if (sess) { try { await api("logout"); } catch (e) {} }
-    try { localStorage.removeItem("snsLocal"); } catch (e) {}
-    // 저장된 연결 코드도 지워야 새로고침 후 자동으로 다시 연결되지 않습니다.
-    try { localStorage.removeItem("snsToken"); } catch (e) {}
-    token = "";
-    setSess(""); $("acctForm").hidden = false; $("acctUser").hidden = true; $("acctMenu").hidden = true; $("connAcct").hidden = true; acctSay("");
+    setSess("");
+    try { localStorage.removeItem("snsUid"); } catch (e) {} // 이 아이디의 저장값은 남겨 두고(다시 로그인하면 이어서 씀), 다음 로그인 아이디로 전환
     location.reload();
   };
   $("acctOut").addEventListener("click", doLogout);
@@ -128,7 +88,7 @@ async function initAccount() {
   $("connAcct").addEventListener("click", (e) => { e.stopPropagation(); setMenu($("acctMenu").hidden); });
   $("avPick").addEventListener("click", () => $("avFile").click());
   $("avFile").addEventListener("change", () => { pickAvatar($("avFile").files[0]); $("avFile").value = ""; });
-  $("avClear").addEventListener("click", () => { try { localStorage.removeItem("snsAvatar"); } catch (e) {} loadAvatar(); });
+  $("avClear").addEventListener("click", () => { try { localStorage.removeItem(ukey("snsAvatar")); } catch (e) {} loadAvatar(); });
   $("menuSettings").addEventListener("click", () => { setMenu(false); openAcct(); });
   $("connOut").addEventListener("click", () => setMenu(false));
   document.addEventListener("click", (e) => { if (!e.target.closest(".acctwrap")) setMenu(false); });
@@ -156,26 +116,27 @@ async function initAccount() {
     clearTimeout(delArmed); delArmed = 0; $("delBtn").textContent = "계정 삭제";
     try {
       await api("deleteAccount", { password: $("delPw").value });
-      try { await call("unpair"); } catch (e) { /* 확장이 없거나 구버전이면 확장 화면에서 직접 연결 해제 */ }
-      try { ["snsToken", "snsSess", "snsSeen"].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
+      try { PER_USER_KEYS.forEach((k) => localStorage.removeItem(ukey(k))); ["snsSess", "snsUid"].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
       location.reload();
     } catch (e) { say("delMsg", e.message, true); }
   });
   if (sess) {
-    try { const j = await api("me"); pairFlow(j.id, j.token); }
+    // 저장된 로그인을 확인하는 사이에 사용자가 새로 로그인했으면(느린 연결에서 생길 수 있음), 늦게 온 옛 확인 결과는 무시합니다.
+    // (예전에는 옛 세션의 '만료' 응답이 방금 받은 새 세션까지 지워, 새로고침하면 로그아웃되어 있었음)
+    const used = sess;
+    try { const j = await api("me"); if (sess === used) await afterLogin(j.id); }
     catch (e) {
+      if (sess !== used) return;
       if (e && e.offline) {
-        // 서버(Vercel)에 닿지 않는 곳(학교망 등): 로그인 상태를 유지하고, 저장된 연결 코드로 확장에만 연결합니다(ui.js).
-        let uid = ""; try { uid = localStorage.getItem("snsUid") || ""; } catch (x) {}
+        // 서버가 꺼져 있거나 닿지 않을 때: 로그인 상태는 유지하고, 서버가 다시 켜지면 자동으로 이어집니다(아래 connect의 반복 확인).
         $("acctForm").hidden = true; $("acctUser").hidden = false; $("connAcct").hidden = false; $("connOut").textContent = "로그아웃";
-        $("acctWho").textContent = (uid ? uid + " " : "") + "로그인됨 (서버에 연결할 수 없어 확장에만 연결 중)";
-        if (uid) setAvatarWho(uid);
-      } else setSess("");
+        $("acctWho").textContent = (UID0 ? UID0 + " " : "") + "로그인됨 (지금은 서버에 연결할 수 없습니다. 다시 켜지면 자동으로 이어집니다)";
+        if (UID0) setAvatarWho(UID0);
+        connect(false);
+      } else { setSess(""); if (e && e.message) acctSay("로그인이 만료되었습니다. 다시 로그인해 주세요.", true); }
     }
-  } else {
-    let on = ""; try { on = localStorage.getItem("snsLocal") || ""; } catch (e) {}
-    if (on === "1") { const t = localToken(); if (t) pairFlow(LOCAL_ID, t); }
   }
 }
 initAccount();
+
 
